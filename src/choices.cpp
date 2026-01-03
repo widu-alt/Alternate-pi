@@ -11,15 +11,6 @@
 
 using namespace std;
 
-// Show unseen tiles
-void showUnseenTiles(const TileBag &bag, const Player players[2], int currentPlayer) {
-
-    int opponent = 1 - currentPlayer;
-    bool revealOpponent = (static_cast<int>(bag.size()) <= 7);
-
-    printTileBag(bag, players[opponent].rack, revealOpponent);
-}
-
 bool executePlayMove(GameState& state,
                      const Move &move,
                      const Board &bonusBoard) {

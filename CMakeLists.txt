@@ -47,4 +47,6 @@ add_executable(scrabblePi src/board.cpp
         include/engine/types.h
         include/engine/state.h
         include/engine/referee.h
-        src/engine/referee.cpp)
+        src/engine/referee.cpp
+        include/interface/renderer.h
+        src/interface/renderer.cpp)

@@ -32,62 +32,6 @@ int drawTiles(TileBag &bag, TileRack &rack, int count) {
     return drawn;
 }
 
-//Print the rack like 1:A(1) 2:T(1) 3:Q(10)
-void printRack(const TileRack &rack) {
-    if (rack.empty()) {
-        cout << "Rack is empty." << endl;
-        return;
-    }
-
-    const int innerWidth = 5; //width inside the tile (between | |)
-    const int tileWidth = innerWidth + 2; //including borders
-
-    string topLine = "  ";
-    string letterLine = "  ";
-    string pointsLine = "  ";
-    string bottomLine = "  ";
-    string indexLine = "  ";
-
-    for (size_t i = 0; i < rack.size(); ++i) {
-        const Tile &t = rack[i];
-
-        topLine += "+-----";
-        bottomLine += "+-----";
-
-        // Letter (centered).
-        char letterChar = (t.letter == '?') ? ' ' : t.letter;
-        string letterStr(1, letterChar);
-        string centeredLetter = centerText(letterStr, innerWidth);
-        letterLine += "|" + centeredLetter;
-
-        // Points (Bottom - right)
-        string pointsStr = to_string(t.points);
-        int spacesBefore = innerWidth - static_cast<int>(pointsStr.size());
-        if (spacesBefore < 0) {
-            spacesBefore = 0;
-        }
-        string pointsInner(spacesBefore, ' ');
-        pointsInner += pointsStr;
-        pointsLine += "|" + pointsInner;
-
-        // Indices under tiles (starting from 1)
-        string indexStr = to_string(static_cast<int>(i)+1);
-        indexLine += centerText(indexStr, innerWidth+1);
-    }
-
-    topLine += "+";
-    bottomLine += "+";
-    letterLine += "|";
-    pointsLine += "|";
-
-    cout << "\nYour rack:\n";
-    cout << topLine << endl;
-    cout << letterLine << endl;
-    cout << pointsLine << endl;
-    cout << bottomLine << endl;
-    cout << indexLine << endl;
-}
-
 //Swap two tiles in the rack (based on player view)
 bool handleSwapCommand(TileRack &rack, int index1, int index2) {
 

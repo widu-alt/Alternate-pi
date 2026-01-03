@@ -10,37 +10,6 @@
 
 using namespace std;
 
-void clearScreen() {
-// for Windows
-#ifdef _WIN32
-    system("cls");
-
-// for Linux/macOS (ANSI terminal)
-#else
-    // ANSI clear: erase screen, move cursor to home
-    cout << "\033[2J\033[H";
-#endif
-}
-
-// wait until user presses Q or q
-void waitForQuitKey() {
-    cout << "\n\033[1;33mPress 'Q' to return...\033[0m\n";
-
-    while (true) {
-        char ch;
-        if (!(cin >> ch)) {
-            cin.clear();
-            cin.ignore(numeric_limits<streamsize>::max(), '\n');
-            continue;
-        }
-        ch = static_cast<char>(toupper(static_cast<unsigned char>(ch)));
-        if (ch == 'Q') {
-            break;
-        }
-        cout << "\n\033[1;33mPress 'Q' to return...\033[0m\n";
-    }
-}
-
 void showAboutScreen() {
     clearScreen();
 
