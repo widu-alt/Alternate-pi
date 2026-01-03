@@ -24,6 +24,7 @@ struct LastMoveInfo {
     int startRow = 0;
     int startCol = 0;
     bool horizontal = false;
+    std::string word;
 };
 
 /* for detecting the EXE directory

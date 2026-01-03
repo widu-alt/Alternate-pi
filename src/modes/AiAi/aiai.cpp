@@ -134,8 +134,9 @@ MatchResult runSingleGame(AIStyle styleP1, AIStyle styleP2, int gameId, bool ver
 
     // Result
     int winner = -1;
-    if (players[0].score > players[1].score) winner = 0;
-    else if (players[1].score > players[0].score) winner = 1;
+    // FIX: Use 'state.players'
+    if (state.players[0].score > state.players[1].score) winner = 0;
+    else if (state.players[1].score > state.players[0].score) winner = 1;
 
     delete controllers[0];
     delete controllers[1];
@@ -143,10 +144,10 @@ MatchResult runSingleGame(AIStyle styleP1, AIStyle styleP2, int gameId, bool ver
     if (verbose) {
         static std::mutex io_mutex;
         std::lock_guard<std::mutex> lock(io_mutex);
-        cout << "Game " << gameId << " Finished. P1: " << players[0].score << " P2: " << players[1].score << endl;
+        cout << "Game " << gameId << " Finished. P1: " << state.players[0].score << " P2: " << state.players[1].score << endl;
     }
 
-    return {players[0].score, players[1].score, winner};
+    return {state.players[0].score, state.players[1].score, winner};
 }
 
 void runAiAi() {

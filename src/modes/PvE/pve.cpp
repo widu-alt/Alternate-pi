@@ -108,8 +108,16 @@ void runPvE() {
         }
 
         if (move.type == MoveType::CHALLENGE) {
-            challengeMove(bonusBoard, state.board, state.blanks, state.bag, state.players,
-                          lastSnapShot, lastMove, pIdx, canChallenge, dictActive);
+            challengeMove(bonusBoard,
+                          state.board,
+                          state.blanks,
+                          state.bag,
+                          state.players,
+                          lastSnapShot,
+                          lastMove,
+                          pIdx,
+                          canChallenge,
+                          dictActive);
             continue;
         }
 
@@ -154,7 +162,8 @@ void runPvE() {
                      AIPlayer* ai = dynamic_cast<AIPlayer*>(controllers[1]);
                      if (ai && ai->shouldChallenge(move, state.board)) {
                          challengePhrase();
-                         // ... (Challenge logic same as before, passing state variables) ...
+
+                         int challengerIdx = 1;
                          challengeMove(bonusBoard,
                                        state.board,
                                        state.blanks,
@@ -162,7 +171,7 @@ void runPvE() {
                                        state.players,
                                        lastSnapShot,
                                        lastMove,
-                                       1,
+                                       challengerIdx,
                                        canChallenge,
                                        dictActive); // Challenger index 1
                          state.currentPlayerIndex = 1; // AI takes turn if successful (simplified)
