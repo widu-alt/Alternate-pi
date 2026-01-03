@@ -54,9 +54,8 @@ void runPvP() {
     Renderer::printTitle();
     cout << "Welcome to Terminal Crossword Game (2-player mode)\n";
 
-    extern Dictionary gDawg; // Use global dictionary (or load local Dawg dict;)
     bool dictActive = true;
-    if (!loadDictionary("csw24.txt")) {
+    if (!gDictionary.loadFromFile("csw24.txt")) {
         cout << "WARNING: Dictionary not loaded.\n";
         dictActive = false;
     }
@@ -141,7 +140,7 @@ void runPvP() {
             // --- NEW REFEREE LOGIC START ---
 
             // 1. Validate (The Judge)
-            MoveResult result = Referee::validateMove(state, move, bonusBoard, gDawg);
+            MoveResult result = Referee::validateMove(state, move, bonusBoard, gDictionary);
 
             if (result.success) {
                 // Save Snapshot for "Undo" (Legacy support)

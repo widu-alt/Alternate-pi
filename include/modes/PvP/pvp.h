@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../../engine/state.h"
+
 // runs the full PvP game loop
 void runPvP();
 

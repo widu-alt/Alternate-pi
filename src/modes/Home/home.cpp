@@ -341,7 +341,7 @@ void wordWizard(const string &word) {
     bool playIsValid = true;
 
     for ( string &wo: challengedWords) {
-        if (!isValidWord(wo)) {
+        if (!gDictionary.isValidWord(wo)) {
             playIsValid = false;
             break;
         }

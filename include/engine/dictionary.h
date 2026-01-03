@@ -68,4 +68,4 @@ private:
 };
 
 // Global access to AI's brain
-extern Dictionary gDawg;
+extern Dictionary gDictionary;

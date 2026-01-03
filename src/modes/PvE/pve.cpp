@@ -66,7 +66,7 @@ void runPvE() {
     lastMove.exists = false;
     lastMove.playerIndex = -1;
     bool canChallenge = false;
-    bool dictActive = loadDictionary("csw24.txt");
+    bool dictActive = gDictionary.loadFromFile("csw24.txt");
     if (!dictActive) cout << "WARNING: Dictionary not loaded.\n";
 
     // Game loop
@@ -145,7 +145,7 @@ void runPvE() {
 
         if (move.type == MoveType::PLAY) {
             // NEW ENGINE LOGIC
-            MoveResult result = Referee::validateMove(state, move, bonusBoard, gDawg);
+            MoveResult result = Referee::validateMove(state, move, bonusBoard, gDictionary);
 
             if (result.success) {
                 // Snapshot

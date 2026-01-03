@@ -15,7 +15,7 @@ bool executePlayMove(GameState& state,
                      const Move &move,
                      const Board &bonusBoard) {
 
-    MoveResult result = Referee::validateMove(state, move, bonusBoard, gDawg);
+    MoveResult result = Referee::validateMove(state, move, bonusBoard, gDictionary);
 
     if (result.success) {
         // 2. Act (The Executioner)
@@ -249,13 +249,13 @@ void challengeMove(Board &bonusBoard,
     bool isValidCrossWord = true;
 
     for ( string &word: crossWords) {
-        if (!isValidWord(word)) {
+        if (!gDictionary.isValidWord(word)) {
             isValidCrossWord = false;
         }
     }
 
     // 3) Check dictionary
-    if (!isValidWord(challengedWord) || !isValidCrossWord) {
+    if (!gDictionary.isValidWord(challengedWord) || !isValidCrossWord) {
         //Challenge Successful:
         // Word is not in dictionary -> undo it and remove it from the board.
         cout << "\nChallenge successful! The play is not valid.\n";

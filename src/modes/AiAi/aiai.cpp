@@ -60,7 +60,6 @@ MatchResult runSingleGame(AIStyle styleP1, AIStyle styleP2, int gameId, bool ver
     bool canChallenge = false;
     bool dictActive = true;
     bool gameOver = false;
-    extern Dictionary gDawg;
 
     auto printState = [&](const string& action, const Move& move) {
         if (!verbose) return;
@@ -116,7 +115,7 @@ MatchResult runSingleGame(AIStyle styleP1, AIStyle styleP2, int gameId, bool ver
         }
 
         if (move.type == MoveType::PLAY) {
-            MoveResult result = Referee::validateMove(state, move, bonusBoard, gDawg);
+            MoveResult result = Referee::validateMove(state, move, bonusBoard, gDictionary);
             if (result.success) {
                 applyMoveToState(state, move, result.score);
                 lastMove.exists = true;
@@ -172,7 +171,7 @@ void runAiAi() {
     cout << "Watch the games? (1 = Yes, 0 = No/Fast): ";
     cin >> verbose;
 
-    if (!loadDictionary("csw24.txt")) { cout << "Error: Dictionary not found.\n"; return; }
+    if (!gDictionary.loadFromFile("csw24.txt")) { cout << "Error: Dictionary not found.\n"; return; }
 
     auto startTotal = chrono::high_resolution_clock::now();
 

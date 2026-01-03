@@ -18,10 +18,10 @@ bool canTraverseSuffix(int nodeIdx, const string &suffix) {
     int curr = nodeIdx;
     for (char c: suffix) {
         int idx = toIdx(c);
-        curr = gDawg.getChild(curr, idx);
+        curr = gDictionary.getChild(curr, idx);
         if (curr == -1) return false;
     }
-    return gDawg.nodes[curr].isEndOfWord;
+    return gDictionary.nodes[curr].isEndOfWord;
 }
 
 CharMask ConstraintGenerator::computeCrossCheck(const LetterBoard &letters, int row, int col) {
@@ -48,7 +48,7 @@ CharMask ConstraintGenerator::computeCrossCheck(const LetterBoard &letters, int 
     }
 
     CharMask allowed = MASK_NONE;
-    int root = gDawg.rootIndex;
+    int root = gDictionary.rootIndex;
 
     // Iterate All Candidates (A-Z)
     // We check: Candidate -> Prefix(Reverse) -> Sep -> Suffix
@@ -57,13 +57,13 @@ CharMask ConstraintGenerator::computeCrossCheck(const LetterBoard &letters, int 
         int curr = root;
 
         // A. Step 1: The Candidate (Anchor)
-        curr = gDawg.getChild(curr, i);
+        curr = gDictionary.getChild(curr, i);
         if (curr == -1) continue;
 
         // B. Step 2: The Prefix (Upwards/Reverse)
         bool prefixValid = true;
         for (char p : prefix) {
-            curr = gDawg.getChild(curr, toIdx(p));
+            curr = gDictionary.getChild(curr, toIdx(p));
             if (curr == -1) {
                 prefixValid = false;
                 break;
@@ -72,7 +72,7 @@ CharMask ConstraintGenerator::computeCrossCheck(const LetterBoard &letters, int 
         if (!prefixValid) continue;
 
         // C. Step 3: The Separator
-        curr = gDawg.getChild(curr, SEPERATOR);
+        curr = gDictionary.getChild(curr, SEPERATOR);
         if (curr == -1) continue;
 
         // D. Step 4: The Suffix (Downwards/Forward)

@@ -5,7 +5,7 @@
 
 using namespace std;
 
-Dictionary gDawg;
+Dictionary gDictionary;
 
 // We use index 26 as the 'Seperator'
 const int SEPERATOR = 26;

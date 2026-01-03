@@ -211,7 +211,7 @@ Move HumanPlayer::parseMoveInput(const Board &bonusBoard,
 
     // Construct the move
     Move moveAttempt = Move::Play(row, col, horizontal, word);
-    MoveResult preview = Referee::validateMove(previewState, moveAttempt, bonusBoard, gDawg);
+    MoveResult preview = Referee::validateMove(previewState, moveAttempt, bonusBoard, gDictionary);
 
     if (!preview.success) {
         cout << "Move Failed " << preview.message << endl;

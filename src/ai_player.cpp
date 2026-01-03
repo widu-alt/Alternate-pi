@@ -219,7 +219,7 @@ bool AIPlayer::shouldChallenge(const Move &opponentMove, const LetterBoard &boar
         scanC += dc;
     }
 
-    if (mainWord.length() > 1 && !gDawg.isValidWord(mainWord)) {
+    if (mainWord.length() > 1 && !gDictionary.isValidWord(mainWord)) {
         cout << "\n[AI] Challenging! Main word '" << mainWord << "' is invalid." << endl;
         return true;
     }
@@ -249,7 +249,7 @@ bool AIPlayer::shouldChallenge(const Move &opponentMove, const LetterBoard &boar
                 crossC += pdc;
             }
 
-            if (crossWord.length() > 1 && !gDawg.isValidWord(crossWord)) {
+            if (crossWord.length() > 1 && !gDictionary.isValidWord(crossWord)) {
                 cout << "[AI] Challenging! Cross-word '" << crossWord << "' is invalid." << endl;
                 return true;
             }
@@ -323,7 +323,7 @@ Move AIPlayer::getMove(const Board &bonusBoard,
             bonusBoard,
             myRack,
             spy, // <--- PASS THE PERSISTENT SPY (The Brain)
-            gDawg,
+            gDictionary,
             500
         );
     }
@@ -373,5 +373,5 @@ Move AIPlayer::getEndGameDecision() {
 }
 
 void AIPlayer::findAllMoves(const LetterBoard &letters, const TileRack &rack) {
-    this->candidates = spectre::MoveGenerator::generate(letters, rack, gDawg);
+    this->candidates = spectre::MoveGenerator::generate(letters, rack, gDictionary);
 }
