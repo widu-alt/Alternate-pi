@@ -3,6 +3,7 @@
 #include "../include/choices.h"
 #include "../include/engine/referee.h"
 #include "../include/engine/state.h"
+#include "../include/interface/renderer.h"
 #include <iostream>
 #include <limits>
 #include <algorithm>
@@ -53,11 +54,11 @@ Move HumanPlayer::getMove(const Board &bonusBoard,
 
         // Commands
         if (choice == 'B') {
-            printBoard(bonusBoard, letters);
+            Renderer::printBoard(bonusBoard, letters);
             cout << "Scores: Player 1 = " << (playerNum == 1 ? me.score : opponent.score)
                  << " | Player 2 = " << (playerNum == 2 ? me.score : opponent.score) << endl;
             cout << "Rack:\n";
-            printRack(myRack);
+            Renderer::printRack(myRack);
             continue;
         }
 
@@ -69,7 +70,7 @@ Move HumanPlayer::getMove(const Board &bonusBoard,
             tempPlayers[myIndex] = me;
             tempPlayers[opponentIndex] = opponent;
 
-            showUnseenTiles(bag, tempPlayers, myIndex);
+            Renderer::showUnseenTiles(bag, tempPlayers, myIndex);
             continue;
         }
 
@@ -153,7 +154,7 @@ Move HumanPlayer::handleRackLogic(TileRack &rack, TileBag &bag) {
     // Swaps/Shuffles are local
     if (ok){
         cout << "\nRack Updated\n";
-        printRack(rack);
+        Renderer::printRack(rack);
     } else {
         cout << "\nInvalid Rack command\n";
     }

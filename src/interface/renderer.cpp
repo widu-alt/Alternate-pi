@@ -308,9 +308,8 @@ void printTileBag(const TileBag &bag, const vector<Tile> &opponentRack, bool rev
     }
 }
 
-
 // Show unseen tiles
-void showUnseenTiles(const TileBag &bag, const Player players[2], int currentPlayer) {
+void Renderer::showUnseenTiles(const TileBag &bag, const Player players[2], int currentPlayer) {
 
     int opponent = 1 - currentPlayer;
     bool revealOpponent = (static_cast<int>(bag.size()) <= 7);
@@ -322,7 +321,6 @@ void Renderer::clearScreen() {
     // for Windows
 #ifdef _WIN32
     system("cls");
-
     // for Linux/macOS (ANSI terminal)
 #else
     // ANSI clear: erase screen, move cursor to home

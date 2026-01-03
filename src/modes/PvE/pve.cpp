@@ -19,6 +19,7 @@
 // Engine
 #include "../../../include/engine/state.h"
 #include "../../../include/engine/referee.h"
+#include "../../../include/interface/renderer.h"
 
 using namespace std;
 
@@ -73,6 +74,13 @@ void runPvE() {
 
         int pIdx = state.currentPlayerIndex;
         Player& current = state.players[pIdx];
+
+        Renderer::printBoard(bonusBoard, state.board);
+        cout << "Scores: You = " << state.players[0].score << " | " << botName << " ="<< state.players[1].score << "\n";
+        if (state.currentPlayerIndex == 0) {
+            cout << "Your Rack:" << endl;
+            Renderer::printRack(state.players[0].rack);
+        }
 
         if (handleSixPassEndGame(state.players)) {
             break;
@@ -192,6 +200,8 @@ void runPvE() {
     }
     delete controllers[0];
     delete controllers[1];
+    Renderer::waitForQuitKey();
+    Renderer::clearScreen();
 }
 
 

@@ -15,6 +15,7 @@
 #include "../../../include/choices.h"
 #include "../../../include/ai_player.h"
 #include "../../../include/modes/Home/home.h"
+#include "../../../include/interface/renderer.h"
 
 #include "../../../include/engine/state.h"
 #include "../../../include/engine/referee.h"
@@ -61,7 +62,6 @@ MatchResult runSingleGame(AIStyle styleP1, AIStyle styleP2, int gameId, bool ver
     bool gameOver = false;
     extern Dawg gDawg;
 
-    // Helper to print state safely
     auto printState = [&](const string& action, const Move& move) {
         if (!verbose) return;
         std::lock_guard<std::mutex> lock(g_io_mutex);
@@ -76,8 +76,7 @@ MatchResult runSingleGame(AIStyle styleP1, AIStyle styleP2, int gameId, bool ver
         if (move.type == MoveType::EXCHANGE) cout << " Tiles: " << move.exchangeLetters;
         cout << endl;
 
-        // FIX: Use 'state.board'
-        printBoard(bonusBoard, state.board);
+        Renderer::printBoard(bonusBoard, state.board);
 
         // FIX: Use 'state.players'
         cout << "Rack P1: "; printRack(state.players[0].rack);
@@ -122,10 +121,8 @@ MatchResult runSingleGame(AIStyle styleP1, AIStyle styleP2, int gameId, bool ver
                 applyMoveToState(state, move, result.score);
                 lastMove.exists = true;
                 lastMove.playerIndex = pIdx;
-                // ... update lastMove details ...
                 state.currentPlayerIndex = 1 - state.currentPlayerIndex;
             } else {
-                // AI Error -> Pass
                 passTurn(state.players, pIdx, canChallenge, lastMove);
                 state.currentPlayerIndex = 1 - state.currentPlayerIndex;
             }
@@ -180,7 +177,7 @@ void runAiAi() {
     auto startTotal = chrono::high_resolution_clock::now();
 
     // PARALLEL EXECUTION
-    // We utilize std::async to launch games on available cores
+    // utilize std::async to launch games on available cores
     vector<future<MatchResult>> futures;
     int batchSize = thread::hardware_concurrency(); // likely 6 on your Ryzen
     if (batchSize == 0) batchSize = 4;
@@ -231,7 +228,7 @@ void runAiAi() {
     cout << "Combined Avg: " << ((totalP1 + totalP2) / (double)numGames / 2.0) << "\n";
     cout << "=========================================\n";
 
-    waitForQuitKey();
-    clearScreen();
+    Renderer::waitForQuitKey();
+    Renderer::clearScreen();
 }
 

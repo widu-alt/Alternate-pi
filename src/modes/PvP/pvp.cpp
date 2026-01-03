@@ -13,6 +13,7 @@
 #include "../../../include/engine/referee.h"
 #include "../../../include/human_player.h"
 #include "../../../include/modes/Home/home.h"
+#include "../../../include/interface/renderer.h"
 
 using namespace std;
 
@@ -50,7 +51,7 @@ void runPvP() {
     // Bonus board is static
     Board bonusBoard = createBoard();
 
-    printTitle();
+    Renderer::printTitle();
     cout << "Welcome to Terminal Crossword Game (2-player mode)\n";
 
     extern Dawg gDawg; // Use global dictionary (or load local Dawg dict;)
@@ -66,15 +67,12 @@ void runPvP() {
         Player& current = state.players[pIdx];
         Player& opponent = state.players[1 - pIdx];
 
-        // FIX: Use state.board instead of 'letters'
-        printBoard(bonusBoard, state.board);
+        Renderer::printBoard(bonusBoard, state.board);
         cout << "Scores: Player 1 = " << state.players[0].score
              << " | Player 2 = " << state.players[1].score << endl;
         cout << "Player " << (pIdx + 1) << "'s Rack" << endl;
+        Renderer::printRack(current.rack);
 
-        printRack(current.rack);
-
-        // FIX: Use state.players
         if (handleSixPassEndGame(state.players)) {
             break;
         }
@@ -174,8 +172,8 @@ void runPvP() {
 
     delete controllers[0];
     delete controllers[1];
-    waitForQuitKey();
-    clearScreen();
+    Renderer::waitForQuitKey();
+    Renderer::clearScreen();
 }
 
 

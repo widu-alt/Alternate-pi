@@ -41,9 +41,6 @@ void passTurn(Player players[2], int &currentPlayer, bool &canChallenge, LastMov
 // unseen tiles are bag + opponent rack, reveal opponenet rack when bag <= 7 (Tile tracking)
 void showTileSet(const TileBag &bag, const Player players[2], int currentPlayer);
 
-// Show unseen tiles
-void showUnseenTiles(const TileBag &bag, const Player players[2], int currentPlayer);
-
 // Handle a CHALLENGE command;
 // Uses lastSnapshot to undo the last move on successful challenge.
 // Does NOT change current player.
