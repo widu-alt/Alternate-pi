@@ -16,7 +16,7 @@ thread_local mt19937 rng(random_device{}());
 
 MoveCandidate Vanguard::search(const LetterBoard& board, const Board& bonusBoard,
                                const TileRack& rack, const Spy& spy, // <--- Using Spy
-                               Dawg& dict, int timeLimitMs) {
+                               Dictionary& dict, int timeLimitMs) {
 
     // 1. Generate Candidates (Initial pass with threading)
     vector<MoveCandidate> candidates = MoveGenerator::generate(board, rack, dict, true);
@@ -144,7 +144,7 @@ MoveCandidate Vanguard::search(const LetterBoard& board, const Board& bonusBoard
 // Ensure you keep those implementations at the bottom of the file!
 
 int Vanguard::playout(LetterBoard board, const Board& bonusBoard, int* myRackCounts, int* oppRackCounts,
-                      vector<char> bag, bool myTurn, Dawg& dict) {
+                      vector<char> bag, bool myTurn, Dictionary& dict) {
     int myScore = 0; int oppScore = 0; int passes = 0; int turns = 0;
 
     while (passes < 2 && turns < 2) {

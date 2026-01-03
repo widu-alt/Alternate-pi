@@ -54,7 +54,7 @@ void runPvP() {
     Renderer::printTitle();
     cout << "Welcome to Terminal Crossword Game (2-player mode)\n";
 
-    extern Dawg gDawg; // Use global dictionary (or load local Dawg dict;)
+    extern Dictionary gDawg; // Use global dictionary (or load local Dawg dict;)
     bool dictActive = true;
     if (!loadDictionary("csw24.txt")) {
         cout << "WARNING: Dictionary not loaded.\n";

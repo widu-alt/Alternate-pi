@@ -15,7 +15,7 @@ namespace spectre {
             const Board& bonusBoard,
             const TileRack& rack,
             const Spy& spy,
-            Dawg& dict,
+            Dictionary& dict,
             int timeLimitMs = 1000
         );
 
@@ -28,7 +28,7 @@ namespace spectre {
             int* oppRackCounts,
             std::vector<char> bag, // passed by value to mutate copy
             bool myTurn,
-            Dawg& dict
+            Dictionary& dict
         );
 
         // Helper to calculate score

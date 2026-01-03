@@ -3,7 +3,7 @@
 #include <vector>
 #include <string>
 #include <cstdint>
-#include <bit> // C++20 standard for popcount
+#include <bit>
 
 // 26 Letters + 1 Seperator ('^')
 #define LETTER_COUNT 27
@@ -20,21 +20,16 @@ struct DawgNode {
     DawgNode() : edgeMask(0), subtreeMask(0), firstChildIndex(-1), isEndOfWord(false) {}
 };
 
-class Dawg {
+class Dictionary {
 public:
     vector<DawgNode> nodes;
     vector<int> childrenPool; // Compact storage for edges
     int rootIndex = 0;
 
-    Dawg();
+    Dictionary();
 
-    // Loads the dictionary file and builds the GADDAG
-    // Build from text list -> Compress -> Save to Binary
-    void buildFromWordList(const vector<string> &wordList);
-
-    // Load dictionary from Binary
-    bool loadBinary(const string& filename);
-    bool saveBinary(const string& filename);
+    // The Unified Loader: Tries binary cache first, then text file
+    bool loadFromFile(const string &filename);
 
     // Checks if a standard word exists (mostly for debugging/constraints)
     bool isValidWord(const string &word) const;
@@ -60,9 +55,17 @@ public:
     }
 
 private:
+    // Loads the dictionary file and builds the GADDAG
+    // Build from text list -> Compress -> Save to Binary
+    void buildFromWordList(const vector<string> &wordList);
+
     //Insert a word into the graph in GADDAG format (rotations with separator)
     void insertGADDAG(const string &word);
+
+    // Load dictionary from Binary
+    bool loadBinary(const string& filename);
+    bool saveBinary(const string& filename);
 };
 
 // Global access to AI's brain
-extern Dawg gDawg;
+extern Dictionary gDawg;

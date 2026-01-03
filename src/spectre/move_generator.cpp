@@ -10,7 +10,7 @@ const int SEPERATOR = 26;
 
 // Legacy Wrapper: Speedi_Pi needs Vectors and Full Data (Leaves)
 // NOW SINGLE THREADED to support Parallel Game Simulation
-vector<MoveCandidate> MoveGenerator::generate(const LetterBoard &board, const TileRack &rack, Dawg &dict, bool useThreading) {
+vector<MoveCandidate> MoveGenerator::generate(const LetterBoard &board, const TileRack &rack, Dictionary &dict, bool useThreading) {
 
     // NOTE: 'useThreading' arg is ignored in favor of higher-level game parallelism.
     // In High-Throughput simulations, threading inner loops causes cache contention.

@@ -60,7 +60,7 @@ MatchResult runSingleGame(AIStyle styleP1, AIStyle styleP2, int gameId, bool ver
     bool canChallenge = false;
     bool dictActive = true;
     bool gameOver = false;
-    extern Dawg gDawg;
+    extern Dictionary gDawg;
 
     auto printState = [&](const string& action, const Move& move) {
         if (!verbose) return;

@@ -233,7 +233,7 @@ static int scoreCrossWord(const Board &bonusBoard, const LetterBoard &letters, c
     return totalLetterScore * wordMultiplier;
 }
 
-MoveResult Referee::validateMove(const GameState &state, const Move &move, const Board &bonusBoard, Dawg &dict) {
+MoveResult Referee::validateMove(const GameState &state, const Move &move, const Board &bonusBoard, Dictionary &dict) {
     MoveResult res{};
     res.success = false;
     res.score = 0;

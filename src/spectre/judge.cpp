@@ -33,7 +33,7 @@ namespace spectre {
     }
 
 Move Judge::solveEndgame(const LetterBoard& board, const Board& bonusBoard,
-                         const TileRack& myRack, const TileRack& oppRack, Dawg& dict) {
+                         const TileRack& myRack, const TileRack& oppRack, Dictionary& dict) {
 
     {
         std::lock_guard<std::mutex> lock(spectre::console_mutex);
@@ -71,6 +71,6 @@ int Judge::calculateMoveScore(const LetterBoard& board, const Board& bonusBoard,
     return 0;
 }
 void Judge::applyMove(LetterBoard& board, const MoveCandidate& move, int* rackCounts) {}
-int Judge::minimax(LetterBoard board, const Board& bonusBoard, int* myRack, int* oppRack, Dawg& d, int a, int b, bool maxP, int pass, int depth, const std::chrono::steady_clock::time_point& start, int budget) { return 0; }
+int Judge::minimax(LetterBoard board, const Board& bonusBoard, int* myRack, int* oppRack, Dictionary& d, int a, int b, bool maxP, int pass, int depth, const std::chrono::steady_clock::time_point& start, int budget) { return 0; }
 
 }

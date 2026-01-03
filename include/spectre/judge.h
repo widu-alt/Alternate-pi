@@ -28,7 +28,7 @@ public:
                              const Board& bonusBoard,
                              const TileRack& myRack,
                              const TileRack& oppRack,
-                             Dawg& dict);
+                             Dictionary& dict);
 
 private:
     /**
@@ -46,7 +46,7 @@ private:
                    const Board& bonusBoard,
                    int* myRackCounts,
                    int* oppRackCounts,
-                   Dawg& dict,
+                   Dictionary& dict,
                    int alpha,
                    int beta,
                    bool maximizingPlayer,

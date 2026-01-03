@@ -7,25 +7,9 @@
 #include "../include/board.h"
 #include "../include/tiles.h"
 #include "../include/move.h"
+#include "engine/state.h"
 
 using namespace std;
-
-// Snapshot of game state before last word move
-struct GameSnapshot {
-    LetterBoard letters;
-    BlankBoard blanks;
-    TileBag bag;
-    Player players[2];
-};
-
-struct LastMoveInfo {
-    bool exists = false;
-    int playerIndex = -1;
-    int startRow = 0;
-    int startCol = 0;
-    bool horizontal = false;
-    std::string word;
-};
 
 /* for detecting the EXE directory
 string getExecutableDirectory();

@@ -21,8 +21,14 @@ bool placeWordOnBoard(LetterBoard &letters, int row, int col, bool horizontal, c
 // Create and return a board with all Scrabble bonus squares set.
 Board createBoard();
 
-// Print the Title (once)
-void printTitle();
+// Helpers for Challenges/Validation
+string extractMainWord(const LetterBoard &letters,
+                       int row,
+                       int col,
+                       bool horizontal);
 
-// Print the board with letters if present, otherwise with bonuses.
-void printBoard(const Board &bonusBoard, const LetterBoard &letters);
+vector<std::string> crossWordList(const LetterBoard &letters,
+                                  const LetterBoard &oldLetters,
+                                  int row,
+                                  int col,
+                                  bool mainHorizontal);
