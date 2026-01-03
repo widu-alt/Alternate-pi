@@ -1,7 +1,7 @@
 #include <iostream>
 
-#include "../include/board.h"
-#include "../include/interface/renderer.h"
+#include "../../include/engine/board.h"
+#include "../../include/interface/renderer.h"
 
 using namespace std;
 

@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <vector>
 #include <array>
-#include "board.h" // for Board/LetterBoard definitions
+#include "engine/board.h"
 
 using namespace std;
 

@@ -1,9 +1,9 @@
 #pragma once
 
-#include "../../include/board.h"
+#include "../engine/board.h"
 #include "../../include/move.h"
-#include "../../include/rack.h"
-#include "../../include/tiles.h"
+#include "../../include/engine/rack.h"
+#include "../engine/tiles.h"
 #include <vector>
 
 namespace spectre {

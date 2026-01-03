@@ -1,5 +1,5 @@
-#include "../include/rack.h"
-#include "../include/tiles.h"
+#include "../../include/engine/rack.h"
+#include "../../include/engine/tiles.h"
 
 #include <iostream>
 #include <algorithm>

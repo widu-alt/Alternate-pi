@@ -1,7 +1,7 @@
 #pragma once
 
-#include "board.h"
-#include "rack.h"
+#include "engine/board.h"
+#include "engine/rack.h"
 #include "move.h"
 #include "player_controller.h"
 #include "spectre/move_generator.h"

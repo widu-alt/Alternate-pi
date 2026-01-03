@@ -3,12 +3,12 @@ project(scrabblePi)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(scrabblePi src/board.cpp
-        include/board.h
-        include/tiles.h
-        src/tiles.cpp
-        include/rack.h
-        src/rack.cpp
+add_executable(scrabblePi src/engine/board.cpp
+        include/engine/board.h
+        include/engine/tiles.h
+        src/engine/tiles.cpp
+        include/engine/rack.h
+        src/engine/rack.cpp
         src/main.cpp
         include/move.h
         src/choices.cpp

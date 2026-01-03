@@ -1,5 +1,5 @@
-#include "../include/tiles.h"
-#include "../include/rack.h"
+#include "../../include/engine/tiles.h"
+#include "../../include/engine/rack.h"
 
 #include <iostream>
 #include <vector>

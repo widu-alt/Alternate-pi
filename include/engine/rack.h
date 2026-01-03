@@ -2,8 +2,8 @@
 
 #include <vector>
 #include <string>
-#include "../include/tiles.h"
-#include "engine/types.h"
+#include "tiles.h"
+#include "types.h"
 
 using namespace std;
 

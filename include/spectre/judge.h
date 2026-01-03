@@ -5,8 +5,8 @@
 #include <chrono>
 
 #include "move_generator.h"
-#include "../../include/board.h"
-#include "../../include/rack.h"
+#include "../engine/board.h"
+#include "../../include/engine/rack.h"
 #include "../../include/move.h"
 #include "../engine/dictionary.h"
 

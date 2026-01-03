@@ -2,10 +2,10 @@
 #include <string>
 #include <sstream>
 
-#include "../../../include/board.h"
+#include "../../../include/engine/board.h"
 #include "../../../include/move.h"
-#include "../../../include/tiles.h"
-#include "../../../include/rack.h"
+#include "../../../include/engine/tiles.h"
+#include "../../../include/engine/rack.h"
 #include "../../../include/engine/dictionary.h"
 #include "../../../include/choices.h"
 #include "../../../include/modes/PvP/pvp.h"

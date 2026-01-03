@@ -1,9 +1,9 @@
 #pragma once
 
 #include "move.h"
-#include "board.h"
-#include "rack.h"
-#include "tiles.h"
+#include "engine/board.h"
+#include "engine/rack.h"
+#include "engine/tiles.h"
 
 class PlayerController {
 public:

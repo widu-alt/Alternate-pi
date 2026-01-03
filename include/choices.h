@@ -1,9 +1,9 @@
 #pragma once
 
 #include "../include/move.h"
-#include "../include/board.h"
-#include "../include/tiles.h"
-#include "../include/rack.h"
+#include "engine/board.h"
+#include "engine/tiles.h"
+#include "../include/engine/rack.h"
 #include "engine/dictionary.h"
 #include "../include/player_controller.h"
 #include "../include/engine/referee.h"

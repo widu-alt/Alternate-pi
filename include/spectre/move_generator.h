@@ -2,8 +2,8 @@
 
 #include <vector>
 #include <string>
-#include "../../include/board.h"
-#include "../../include/rack.h"
+#include "../engine/board.h"
+#include "../../include/engine/rack.h"
 #include "../../include/fast_constraints.h"
 #include "../engine/dictionary.h"
 
