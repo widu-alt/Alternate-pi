@@ -61,6 +61,12 @@ void challengeMove(Board &bonusBoard,
 // Handle resignation
 bool handleQuit(const Player players[2], int currentPlayer);
 
+void takeSnapshot(GameSnapshot &lastSnapShot,
+                  const LetterBoard &letters,
+                  const BlankBoard &blanks,
+                  const Player players[2],
+                  const TileBag &bag);
+
 /*
 // handle rack command (swap/shuffle/exchange)
 // DELETED: handleRackChoice

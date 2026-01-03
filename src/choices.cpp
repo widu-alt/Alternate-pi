@@ -325,6 +325,64 @@ bool handleQuit(const Player players[2], int currentPlayer) {
     return true;
 }
 
+// [Existing includes...]
+#include "../include/engine/state.h"
+
+// --- ADD THESE FUNCTIONS TO src/choices.cpp ---
+
+void applyMoveToState(GameState& state, const Move& move, int score) {
+    int dr = move.horizontal ? 0 : 1;
+    int dc = move.horizontal ? 1 : 0;
+    int r = move.row;
+    int c = move.col;
+
+    TileRack& rack = state.players[state.currentPlayerIndex].rack;
+    string word = move.word;
+
+    // 1. Place Tiles
+    for (char letter : word) {
+        while (r < BOARD_SIZE && c < BOARD_SIZE && state.board[r][c] != ' ') {
+            r += dr; c += dc;
+        }
+        state.board[r][c] = toupper(letter);
+        state.blanks[r][c] = (letter >= 'a' && letter <= 'z');
+
+        // Remove from Rack
+        for (auto it = rack.begin(); it != rack.end(); ++it) {
+            bool match = false;
+            if (it->letter == '?') match = true;
+            else if (toupper(it->letter) == toupper(letter)) match = true;
+
+            if (match) {
+                rack.erase(it);
+                break;
+            }
+        }
+        r += dr; c += dc;
+    }
+
+    // 2. Update Score & Pass Count
+    state.players[state.currentPlayerIndex].score += score;
+    state.players[state.currentPlayerIndex].passCount = 0;
+
+    // 3. Draw Tiles
+    if (rack.size() < 7 && !state.bag.empty()) {
+        drawTiles(state.bag, rack, static_cast<int>(7 - rack.size()));
+    }
+}
+
+void takeSnapshot(GameSnapshot &lastSnapShot,
+                  const LetterBoard &letters,
+                  const BlankBoard &blanks,
+                  const Player players[2],
+                  const TileBag &bag) {
+    lastSnapShot.letters = letters;
+    lastSnapShot.blanks = blanks;
+    lastSnapShot.bag = bag;
+    lastSnapShot.players[0] = players[0];
+    lastSnapShot.players[1] = players[1];
+}
+
 /*
 void handleRackChoice(Board &bonusBoard,
                       LetterBoard &letters,

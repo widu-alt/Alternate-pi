@@ -16,57 +16,6 @@
 
 using namespace std;
 
-// Helper to apply a valid move to the state (Since Referee only judges)
-void applyMoveToState(GameState& state, const Move& move, int score) {
-    int dr = move.horizontal ? 0 : 1;
-    int dc = move.horizontal ? 1 : 0;
-    int r = move.row;
-    int c = move.col;
-
-    TileRack& rack = state.players[state.currentPlayerIndex].rack;
-    string word = move.word;
-
-    // 1. Place Tiles on Board
-    for (char letter : word) {
-        // Skip existing tiles on board
-        while (r < BOARD_SIZE && c < BOARD_SIZE && state.board[r][c] != ' ') {
-            r += dr; c += dc;
-        }
-
-        // Place new tile
-        state.board[r][c] = toupper(letter);
-        state.blanks[r][c] = (letter >= 'a' && letter <= 'z'); // Capture blank from input case
-
-        // Remove from Rack
-        // Logic: Find the first matching tile (or blank) and remove it
-        for (auto it = rack.begin(); it != rack.end(); ++it) {
-            bool match = false;
-            if (it->letter == '?') {
-                match = true; // Use blank if needed
-            } else if (toupper(it->letter) == toupper(letter)) {
-                match = true;
-            }
-
-            if (match) {
-                rack.erase(it);
-                break;
-            }
-        }
-
-        r += dr; c += dc;
-    }
-
-    // 2. Update Score
-    state.players[state.currentPlayerIndex].score += score;
-    state.players[state.currentPlayerIndex].passCount = 0; // Reset pass count
-
-    // 3. Draw New Tiles
-    // FIX: Use 'state.bag' instead of just 'bag'
-    if (rack.size() < 7 && !state.bag.empty()) {
-        drawTiles(state.bag, rack, static_cast<int>(7 - rack.size()));
-    }
-}
-
 void runPvP() {
     // 1. Setup State
     GameState state;
@@ -229,18 +178,6 @@ void runPvP() {
     clearScreen();
 }
 
-void takeSnapshot(GameSnapshot &lastSnapShot,
-                  const LetterBoard &letters,
-                  const BlankBoard &blanks,
-                  const Player players[2],
-                  const TileBag &bag) {
-
-    lastSnapShot.letters = letters;
-    lastSnapShot.blanks = blanks;
-    lastSnapShot.bag = bag;
-    lastSnapShot.players[0] = players[0];
-    lastSnapShot.players[1] = players[1];
-}
 
 
 

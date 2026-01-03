@@ -16,20 +16,22 @@
 #include "../../../include/ai_player.h"
 #include "../../../include/modes/Home/home.h"
 
+// Engine
+#include "../../../include/engine/state.h"
+#include "../../../include/engine/referee.h"
+
 using namespace std;
 
 void runPvE() {
 
-    // 1. Setup Board
-    Board bonusBoard = createBoard();
-    LetterBoard letters;
-    clearLetterBoard(letters);
-    BlankBoard blanks;
-    clearBlankBoard(blanks);
+    // 1. Initialize Unified State
+    GameState state;
+    clearLetterBoard(state.board);
+    clearBlankBoard(state.blanks);
+    state.bag = createStandardTileBag();
+    shuffleTileBag(state.bag);
 
-    // 2. Setup Bag
-    TileBag bag = createStandardTileBag();
-    shuffleTileBag(bag);
+    Board bonusBoard = createBoard();
 
     // 2. Select Opponent
     int botChoice;
@@ -44,213 +46,142 @@ void runPvE() {
     AIStyle selectedStyle = (botChoice == 1) ? AIStyle::SPEEDI_PI : AIStyle::CUTIE_PI;
 
     // 3. Setup Players
-    Player players[2];
     PlayerController* controllers[2];
 
-    // Player 1 (Human)
-    drawTiles(bag, players[0].rack, 7);
-    players[0].score = 0;
-    players[0].passCount = 0;
+    drawTiles(state.bag, state.players[0].rack, 7);
+    state.players[0].score = 0;
     controllers[0] = new HumanPlayer();
 
-    // Player 2 (AI)
-    drawTiles(bag, players[1].rack, 7);
-    players[1].score = 0;
-    players[1].passCount = 0;
+    drawTiles(state.bag, state.players[1].rack, 7);
+    state.players[1].score = 0;
     controllers[1] = new AIPlayer(selectedStyle);
 
     string botName = ((AIPlayer*)controllers[1])->getName();
+    state.currentPlayerIndex = 0;
 
-    int currentPlayer = 0; // 0 -> Human, 1 -> AI
+    // Legacy tracking
     GameSnapshot lastSnapShot;
     LastMoveInfo lastMove;
     lastMove.exists = false;
     lastMove.playerIndex = -1;
-
     bool canChallenge = false;
-    bool dictActive = true;
-
-    if (!loadDictionary("csw24.txt")) {
-        cout << "WARNING: Dictionary not loaded, AI might misbehave.\n";
-        dictActive = false;
-    }
-
-    printTitle();
-    cout << "\nStarting Match: You vs " << botName << "\n\n";
-    cout << "Good luck, hooman.\n\n";
-
-    printBoard(bonusBoard, letters);
-    cout << "Scores: You = " << players[0].score << " | " << botName << " ="<< players[1].score << "\n";
-
-    // Only show rack in human's turn
-    if (currentPlayer == 0) {
-        cout << "Your Rack:" << endl;
-        printRack(players[currentPlayer].rack);
-    }
+    bool dictActive = loadDictionary("csw24.txt");
+    if (!dictActive) cout << "WARNING: Dictionary not loaded.\n";
 
     // Game loop
     while (true) {
-        if (handleSixPassEndGame(players)) {
+
+        int pIdx = state.currentPlayerIndex;
+        Player& current = state.players[pIdx];
+
+        if (handleSixPassEndGame(state.players)) {
             break;
         }
 
         if (handleEmptyRackEndGame(bonusBoard,
-                                   letters,
-                                   blanks,
-                                   bag,
-                                   players,
+                                   state.board,
+                                   state.blanks,
+                                   state.bag,
+                                   current,
                                    lastSnapShot,
                                    lastMove,
-                                   currentPlayer,
-                                   canChallenge,
-                                   dictActive,
-                                   controllers[currentPlayer])) {
+                                   state.players[1-pIdx],
+                                   pIdx + 1,
+                                   dictActive) {
             break;
         }
 
-        // Get Move  (Human input)
-        Move move = controllers[currentPlayer]->getMove(bonusBoard,
-                                                        letters,
-                                                        blanks,
-                                                        bag,
-                                                        players[currentPlayer], // Me
-                                                        players[1 - currentPlayer], // Opponent
-                                                        currentPlayer + 1);
+        // Get Move
+        Move move = controllers[pIdx]->getMove(bonusBoard, state.board, state.blanks, state.bag,
+                                               current, state.players[1-pIdx], pIdx + 1);
 
-        // move execution
         if (move.type == MoveType::PASS) {
-            passTurn(players, currentPlayer, canChallenge, lastMove);
-            //printBoard(bonusBoard, letters);
-            //cout << "Scores: You = " << players[0].score << " | Cutie_Pi = " << players[1].score << endl;
-
-            if (currentPlayer == 0) {
-                cout << "\nYour Turn:" << endl;
-                printRack(players[currentPlayer].rack);
-            }
+            passTurn(state.players, pIdx, canChallenge, lastMove);
+            state.currentPlayerIndex = 1 - state.currentPlayerIndex; // Sync index
             continue;
         }
 
         if (move.type == MoveType::QUIT) {
-            // Only Human can quit via menu
-            if (handleQuit(players, currentPlayer)) {
-                break;
-            }
+            if (handleQuit(state.players, pIdx)) break;
             continue;
         }
 
         if (move.type == MoveType::CHALLENGE) {
-            // Human is challenging the AI's previous move
-            challengeMove(bonusBoard, letters, blanks, bag, players,
-                          lastSnapShot, lastMove, currentPlayer, canChallenge, dictActive);
-
-            // VISUAL UPDATE: Reprint the board to show if tiles were removed or stayed
-            cout << "\n--- Board Status After Challenge ---\n";
-            printBoard(bonusBoard, letters);
-            cout << "Scores: You = " << players[0].score << " | " << botName << " ="<< players[1].score << endl;
-
-            // If it's still Human's turn (Successful challenge = Opponent lost turn, Human plays), show rack
-            if (currentPlayer == 0) {
-                cout << "\nYour Turn:" << endl;
-                printRack(players[currentPlayer].rack);
-            }
+            challengeMove(bonusBoard, state.board, state.blanks, state.bag, state.players,
+                          lastSnapShot, lastMove, pIdx, canChallenge, dictActive);
             continue;
         }
 
         if (move.type == MoveType::EXCHANGE) {
-            bool success = executeExchangeMove(bag, players[currentPlayer], move);
-            if (success) {
+            if (executeExchangeMove(state.bag, current, move)) {
                 lastMove.exists = false;
                 canChallenge = false;
-
-                players[currentPlayer].passCount++;
-
-                printBoard(bonusBoard, letters);
-                cout << "Scores: You = " << players[0].score << " | " << botName << " ="<< players[1].score << endl;
-
-                currentPlayer = 1 - currentPlayer;
-                if (currentPlayer == 0) {
-                    cout << "\nYour Turn:" << endl;
-                    printRack(players[currentPlayer].rack);
-                }
+                state.currentPlayerIndex = 1 - state.currentPlayerIndex;
             } else {
-                if (currentPlayer == 1) {
-                    cout << "[AI] Exchange failed (Bag empty?). Forcing PASS.\n";
-                    passTurn(players, currentPlayer, canChallenge, lastMove);
-
-                    // Force switch to Human
-                    currentPlayer = 0;
-                    cout << "\nYour Turn:" << endl;
-                    printRack(players[currentPlayer].rack);
-                } else {
-                    cout << "Invalid exchange. Try again.\n";
-                }
+                 if (pIdx == 1) { // AI failed exchange
+                    passTurn(state.players, pIdx, canChallenge, lastMove);
+                    state.currentPlayerIndex = 1 - state.currentPlayerIndex;
+                 }
             }
             continue;
         }
 
         if (move.type == MoveType::PLAY) {
-            bool success = executePlayMove(bonusBoard, letters, blanks, bag, players,
-                                           players[currentPlayer], move, lastSnapShot);
+            // NEW ENGINE LOGIC
+            MoveResult result = Referee::validateMove(state, move, bonusBoard, gDawg);
 
-            if (success) {
+            if (result.success) {
+                // Snapshot
+                takeSnapshot(lastSnapShot, state.board, state.blanks, state.players, state.bag);
+
+                // Act
+                applyMoveToState(state, move, result.score);
+                cout << "Move Valid! Score: " << result.score << endl;
+
+                // Update History
                 lastMove.exists = true;
-                lastMove.playerIndex = currentPlayer;
+                lastMove.playerIndex = pIdx;
                 lastMove.startRow = move.row;
                 lastMove.startCol = move.col;
                 lastMove.horizontal = move.horizontal;
+                lastMove.word = move.word;
                 canChallenge = true;
 
+                // AI Challenge Check (If Human Played)
                 bool turnSwitched = false;
-                if (currentPlayer == 0) { // Human just played
-                    AIPlayer* ai = dynamic_cast<AIPlayer*>(controllers[1]);
-                    // checking if AI is looking to challenge the move
-                    if (ai && ai->shouldChallenge(move, letters)) {
-                        challengePhrase();
-                        cout << "\n\n";
-                        this_thread::sleep_for(chrono::milliseconds(2500)); // dramatic pause
-                        printBoard(bonusBoard, letters);
-
-                        // Execute challenge as AI
-                        int challengerIndex = 1;
-                        challengeMove(bonusBoard, letters, blanks, bag, players,
-                                      lastSnapShot, lastMove, challengerIndex, canChallenge, dictActive);
-                        printBoard(bonusBoard, letters);
-                        currentPlayer = 1;
-                        turnSwitched = true;
-                    }
+                if (pIdx == 0) {
+                     AIPlayer* ai = dynamic_cast<AIPlayer*>(controllers[1]);
+                     if (ai && ai->shouldChallenge(move, state.board)) {
+                         challengePhrase();
+                         // ... (Challenge logic same as before, passing state variables) ...
+                         challengeMove(bonusBoard,
+                                       state.board,
+                                       state.blanks,
+                                       state.bag,
+                                       state.players,
+                                       lastSnapShot,
+                                       lastMove,
+                                       1,
+                                       canChallenge,
+                                       dictActive); // Challenger index 1
+                         state.currentPlayerIndex = 1; // AI takes turn if successful (simplified)
+                         turnSwitched = true;
+                     }
                 }
 
-                if (!turnSwitched) {
-                    printBoard(bonusBoard, letters);
-                    cout << "Scores: You = " << players[0].score << " | " << botName << " ="<< players[1].score << endl;
-                    currentPlayer = 1 - currentPlayer;
-                }
+                if (!turnSwitched) state.currentPlayerIndex = 1 - state.currentPlayerIndex;
 
-                if (currentPlayer == 0) {
-                    //cout << "\nYour Turn:" << endl;
-                    printRack(players[currentPlayer].rack);
-                }
             } else {
-                if (currentPlayer == 1) {
-                    cout << "[Critical Error] AI played an invalid move. Force passing to prevent an infinity loop\n";
-                    passTurn(players, currentPlayer, canChallenge, lastMove);
-                    if (currentPlayer == 0) {
-                        //cout << "\nYour Turn:" << endl;
-                        printRack(players[currentPlayer].rack);
-                    }
-                } else {
-                    // Human can retry
-                    cout << "Invalid move. Try again.\n";
+                cout << "Invalid Move: " << result.message << endl;
+                if (pIdx == 1) { // AI Invalid
+                     passTurn(state.players, pIdx, canChallenge, lastMove);
+                     state.currentPlayerIndex = 1 - state.currentPlayerIndex;
                 }
             }
         }
     }
-
-    // Clean up
     delete controllers[0];
     delete controllers[1];
-    waitForQuitKey();
-    clearScreen();
 }
 
 

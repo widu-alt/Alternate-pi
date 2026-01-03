@@ -16,6 +16,9 @@
 #include "../../../include/ai_player.h"
 #include "../../../include/modes/Home/home.h"
 
+#include "../../../include/engine/state.h"
+#include "../../../include/engine/referee.h"
+
 using namespace std;
 
 // Global mutex to prevent threads from garbling the console output
@@ -30,37 +33,33 @@ struct MatchResult {
 
 // Encapsulate a single game logic for threading
 MatchResult runSingleGame(AIStyle styleP1, AIStyle styleP2, int gameId, bool verbose) {
-    // Thread-Local Game State (No Shared Memory = No Locks = Fast)
+    // 1. Init State
+    GameState state;
+    clearLetterBoard(state.board);
+    clearBlankBoard(state.blanks);
+    state.bag = createStandardTileBag();
+    shuffleTileBag(state.bag);
     Board bonusBoard = createBoard();
-    LetterBoard letters;
-    clearLetterBoard(letters);
-    BlankBoard blanks;
-    clearBlankBoard(blanks);
-    TileBag bag = createStandardTileBag();
-    shuffleTileBag(bag);
 
-    Player players[2];
+    // 2. Setup AI
     PlayerController* controllers[2];
-
-    drawTiles(bag, players[0].rack, 7);
-    players[0].score = 0;
-    players[0].passCount = 0;
+    drawTiles(state.bag, state.players[0].rack, 7);
     controllers[0] = new AIPlayer(styleP1);
 
-    drawTiles(bag, players[1].rack, 7);
-    players[1].score = 0;
-    players[1].passCount = 0;
+    drawTiles(state.bag, state.players[1].rack, 7);
     controllers[1] = new AIPlayer(styleP2);
 
-    int currentPlayer = 0;
+    state.currentPlayerIndex = 0;
+
+    // Legacy vars
     GameSnapshot lastSnapShot;
     LastMoveInfo lastMove;
     lastMove.exists = false;
     lastMove.playerIndex = -1;
-
     bool canChallenge = false;
     bool dictActive = true;
     bool gameOver = false;
+    extern Dawg gDawg;
 
     // Helper to print state safely
     auto printState = [&](const string& action, const Move& move) {
@@ -86,53 +85,46 @@ MatchResult runSingleGame(AIStyle styleP1, AIStyle styleP2, int gameId, bool ver
     };
 
     while (!gameOver) {
-        if (handleSixPassEndGame(players)) { gameOver = true; break; }
-        if (handleEmptyRackEndGame(bonusBoard, letters, blanks, bag, players,
-                                   lastSnapShot, lastMove, currentPlayer, canChallenge,
-                                   dictActive, controllers[currentPlayer])) {
-            gameOver = true; break;
-        }
+        int pIdx = state.currentPlayerIndex;
 
-        Move move = controllers[currentPlayer]->getMove(bonusBoard, letters, blanks, bag,
-                                                        players[currentPlayer],
-                                                        players[1 - currentPlayer],
-                                                        currentPlayer + 1);
+        if (handleSixPassEndGame(state.players)) { gameOver = true; break; }
+        if (handleEmptyRackEndGame(bonusBoard, state.board, state.blanks, state.bag, state.players,
+                                   lastSnapShot, lastMove, pIdx, canChallenge, dictActive, controllers[pIdx])) {
+            gameOver = true; break;
+                                   }
+
+        Move move = controllers[pIdx]->getMove(bonusBoard, state.board, state.blanks, state.bag,
+                                               state.players[pIdx], state.players[1-pIdx], pIdx+1);
 
         if (move.type == MoveType::PASS) {
-            printState("PASS", move);
-            passTurn(players, currentPlayer, canChallenge, lastMove);
+            passTurn(state.players, pIdx, canChallenge, lastMove);
+            state.currentPlayerIndex = 1 - state.currentPlayerIndex;
             continue;
         }
+
         if (move.type == MoveType::EXCHANGE) {
-            if (executeExchangeMove(bag, players[currentPlayer], move)) {
-                printState("EXCHANGE", move);
+            if (executeExchangeMove(state.bag, state.players[pIdx], move)) {
                 lastMove.exists = false;
-                canChallenge = false;
-                players[currentPlayer].passCount++;
-                currentPlayer = 1 - currentPlayer;
+                state.currentPlayerIndex = 1 - state.currentPlayerIndex;
             } else {
-                if(verbose) {
-                    std::lock_guard<std::mutex> lock(g_io_mutex);
-                    cout << "[GAME " << gameId << "] Exchange Failed.\n";
-                }
-                passTurn(players, currentPlayer, canChallenge, lastMove);
+                passTurn(state.players, pIdx, canChallenge, lastMove);
+                state.currentPlayerIndex = 1 - state.currentPlayerIndex;
             }
             continue;
         }
+
         if (move.type == MoveType::PLAY) {
-            bool success = executePlayMove(bonusBoard, letters, blanks, bag, players,
-                                           players[currentPlayer], move, lastSnapShot);
-            if (success) {
-                printState("PLAY", move);
+            MoveResult result = Referee::validateMove(state, move, bonusBoard, gDawg);
+            if (result.success) {
+                applyMoveToState(state, move, result.score);
                 lastMove.exists = true;
-                lastMove.playerIndex = currentPlayer;
-                lastMove.startRow = move.row;
-                lastMove.startCol = move.col;
-                lastMove.horizontal = move.horizontal;
-                canChallenge = true;
-                currentPlayer = 1 - currentPlayer;
+                lastMove.playerIndex = pIdx;
+                // ... update lastMove details ...
+                state.currentPlayerIndex = 1 - state.currentPlayerIndex;
             } else {
-                passTurn(players, currentPlayer, canChallenge, lastMove);
+                // AI Error -> Pass
+                passTurn(state.players, pIdx, canChallenge, lastMove);
+                state.currentPlayerIndex = 1 - state.currentPlayerIndex;
             }
         }
     }
