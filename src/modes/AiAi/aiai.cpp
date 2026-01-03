@@ -11,7 +11,7 @@
 #include "../../../include/move.h"
 #include "../../../include/tiles.h"
 #include "../../../include/rack.h"
-#include "../../../include/dict.h"
+#include "../../../include/engine/dictionary.h"
 #include "../../../include/choices.h"
 #include "../../../include/ai_player.h"
 #include "../../../include/modes/Home/home.h"

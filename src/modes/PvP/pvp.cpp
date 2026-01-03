@@ -6,7 +6,7 @@
 #include "../../../include/move.h"
 #include "../../../include/tiles.h"
 #include "../../../include/rack.h"
-#include "../../../include/dict.h"
+#include "../../../include/engine/dictionary.h"
 #include "../../../include/choices.h"
 #include "../../../include/modes/PvP/pvp.h"
 #include "../../../include/engine/state.h"

@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "../include/dict.h"
+#include "../include/engine/dictionary.h"
 #include "../include/modes/AiAi/aiai.h"
 #include "../include/modes/PvP/pvp.h"
 #include "../include/modes/Home/home.h"

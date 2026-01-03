@@ -20,8 +20,8 @@ add_executable(scrabblePi src/board.cpp
         include/player_controller.h
         src/human_player.cpp
         include/human_player.h
-        include/dictionary.h
-        src/dictionary.cpp
+        include/engine/dictionary.h
+        src/engine/dictionary.cpp
         include/heuristics.h
         include/fast_constraints.h
         src/fast_constraints.cpp

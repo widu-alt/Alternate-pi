@@ -8,7 +8,7 @@
 #include "../../include/board.h"
 #include "../../include/rack.h"
 #include "../../include/move.h"
-#include "../../include/dictionary.h"
+#include "../engine/dictionary.h"
 
 namespace spectre {
 

@@ -5,7 +5,7 @@
 #include "../../include/board.h"
 #include "../../include/rack.h"
 #include "../../include/fast_constraints.h"
-#include "../../include/dictionary.h"
+#include "../engine/dictionary.h"
 
 using namespace std;
 

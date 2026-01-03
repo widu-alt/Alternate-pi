@@ -2,7 +2,7 @@
 #include <limits>
 
 #include "../../../include/modes/Home/home.h"
-#include "../../../include/dict.h"
+#include "../../../include/engine/dictionary.h"
 #include "../../../include/interface/renderer.h"
 
 using namespace std;

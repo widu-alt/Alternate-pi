@@ -4,7 +4,7 @@
 #include "../include/board.h"
 #include "../include/tiles.h"
 #include "../include/rack.h"
-#include "../include/dictionary.h"
+#include "engine/dictionary.h"
 #include "../include/player_controller.h"
 #include "../include/engine/referee.h"
 

@@ -3,7 +3,7 @@
 #pragma once
 #include "types.h"
 #include "state.h"
-#include "../dictionary.h"
+#include "dictionary.h"
 
 class Referee {
 public:
