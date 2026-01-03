@@ -14,28 +14,17 @@
 
 using namespace std;
 
-// Returns true if game ended and scores are printed.
-bool handleSixPassEndGame(Player players[2]);
+// ================================
+//         GAME ACTION
+// ================================
 
-bool handleEmptyRackEndGame(Board &bonusBoard,
-                            LetterBoard &letters,
-                            BlankBoard &blanks,
-                            TileBag &bag,
-                            Player players[2],
-                            GameSnapshot &lastSnapShot,
-                            LastMoveInfo &lastMove,
-                            int &currentPlayer,
-                            bool &canChallenge,
-                            bool &dictActive,
-                            PlayerController* controller);
+bool executePlayMove(GameState& state,
+                     const Move &move,
+                     const Board &bonusBoard);
 
-// Handle Pass command
-// - Increments players passCount
-// - Clears challenge window
-// - Switches the current player
-void applyMoveToState(GameState& state, const Move& move, int score);
+bool executeExchangeMove(GameState& state, const Move &move);
 
-void passTurn(Player players[2], int &currentPlayer, bool &canChallenge, LastMoveInfo &lastMove);
+void passTurn(GameState& state, bool &canChallenge, LastMoveInfo &lastMove);
 
 // Show tile set from current player's prespective
 // unseen tiles are bag + opponent rack, reveal opponenet rack when bag <= 7 (Tile tracking)
@@ -44,48 +33,28 @@ void showTileSet(const TileBag &bag, const Player players[2], int currentPlayer)
 // Handle a CHALLENGE command;
 // Uses lastSnapshot to undo the last move on successful challenge.
 // Does NOT change current player.
-void challengeMove(Board &bonusBoard,
-                   LetterBoard &letters,
-                   BlankBoard &blanks,
-                   TileBag &bag,
-                   Player players[2],
-                   GameSnapshot &lastSnapShot,
+void challengeMove(GameState& state,
+                   const Board &bonusBoard,
+                   const GameState &lastSnapshot,
                    LastMoveInfo &lastMove,
-                   int &currentPlayer,
-                   bool &canChallenge,
-                   bool &dictActive);
+                   bool &canChallenge);
+
+// ================================
+//         END GAME RULES
+// ================================
+
+// Returns true if game ended and scores are printed.
+bool handleSixPassEndGame(GameState& state);
+
+bool handleEmptyRackEndGame(GameState& state,
+                            const Board &bonusBoard,
+                            GameState &lastSnapshot,
+                            LastMoveInfo &lastMove,
+                            bool &canChallenge,
+                            PlayerController* controller);
 
 // Handle resignation
-bool handleQuit(const Player players[2], int currentPlayer);
-
-void takeSnapshot(GameSnapshot &lastSnapShot,
-                  const LetterBoard &letters,
-                  const BlankBoard &blanks,
-                  const Player players[2],
-                  const TileBag &bag);
-
-/*
-// handle rack command (swap/shuffle/exchange)
-// DELETED: handleRackChoice
-
-// Handle playing a move
-void handleMoveChoice(Board &bonusBoard,
-                      LetterBoard &letters,
-                      BlankBoard &blanks,
-                      TileBag &bag,
-                      Player players[2],
-                      GameSnapshot &lastSnapShot,
-                      LastMoveInfo &lastMove,
-                      int &currentPlayer,
-                      bool &canChallenge);
-*/
-
-bool executePlayMove(GameState& state,
-                     const Move &move,
-                     const Board &bonusBoard);
-
-bool executeExchangeMove(TileBag &bag, Player &players, const Move &move);
-
+bool handleQuit(GameState& state);
 
 
 
