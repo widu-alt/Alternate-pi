@@ -11,8 +11,6 @@ add_executable(scrabblePi src/board.cpp
         src/rack.cpp
         src/main.cpp
         include/move.h
-        src/dict.cpp
-        include/dict.h
         src/choices.cpp
         include/choices.h
         src/modes/PvP/pvp.cpp
