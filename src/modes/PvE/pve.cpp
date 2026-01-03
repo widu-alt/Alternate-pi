@@ -82,14 +82,15 @@ void runPvE() {
                                    state.board,
                                    state.blanks,
                                    state.bag,
-                                   current,
+                                   state.players,        // Array of 2 players
                                    lastSnapShot,
                                    lastMove,
-                                   state.players[1-pIdx],
-                                   pIdx + 1,
-                                   dictActive) {
+                                   pIdx,                 // int reference
+                                   canChallenge,         // bool reference
+                                   dictActive,
+                                   controllers[pIdx])) { // Controller pointer
             break;
-        }
+                                   }
 
         // Get Move
         Move move = controllers[pIdx]->getMove(bonusBoard, state.board, state.blanks, state.bag,

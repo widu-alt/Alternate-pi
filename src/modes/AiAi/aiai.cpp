@@ -66,21 +66,24 @@ MatchResult runSingleGame(AIStyle styleP1, AIStyle styleP2, int gameId, bool ver
         if (!verbose) return;
         std::lock_guard<std::mutex> lock(g_io_mutex);
 
+        // FIX: Use 'state.currentPlayerIndex'
         cout << "\n------------------------------------------------------------\n";
-        cout << "GAME " << gameId << " | Turn: Player " << (currentPlayer + 1) << " ("
-             << (currentPlayer == 0 ? "P1" : "P2") << ")\n";
+        cout << "GAME " << gameId << " | Turn: Player " << (state.currentPlayerIndex + 1) << " ("
+             << (state.currentPlayerIndex == 0 ? "P1" : "P2") << ")\n";
 
         cout << "Action: " << action;
         if (move.type == MoveType::PLAY) cout << " '" << move.word << "' at " << (char)('A' + move.row) << (move.col + 1);
         if (move.type == MoveType::EXCHANGE) cout << " Tiles: " << move.exchangeLetters;
         cout << endl;
 
-        printBoard(bonusBoard, letters);
+        // FIX: Use 'state.board'
+        printBoard(bonusBoard, state.board);
 
-        cout << "Rack P1: "; printRack(players[0].rack);
-        cout << "Rack P2: "; printRack(players[1].rack);
+        // FIX: Use 'state.players'
+        cout << "Rack P1: "; printRack(state.players[0].rack);
+        cout << "Rack P2: "; printRack(state.players[1].rack);
 
-        cout << "Scores: P1=" << players[0].score << " | P2=" << players[1].score << endl;
+        cout << "Scores: P1=" << state.players[0].score << " | P2=" << state.players[1].score << endl;
         cout << "------------------------------------------------------------\n";
     };
 
