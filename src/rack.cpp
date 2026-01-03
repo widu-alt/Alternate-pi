@@ -8,18 +8,6 @@
 
 using namespace std;
 
-// Center a short string inside a field of give width
-static string centerText(const string &text, int width) {
-    int padding = width - static_cast<int>(text.size());
-    if (padding <= 0) {
-        return text;
-    }
-
-    int left = padding/2;
-    int right = padding - left;
-    return string(left, ' ' ) + text + string(right, ' ');
-}
-
 // Draw up to 'count' tiles from the bag into the rack.
 // Returns how many tiles were actually drawn.
 int drawTiles(TileBag &bag, TileRack &rack, int count) {
