@@ -20,6 +20,7 @@
 #include "../../../include/engine/state.h"
 #include "../../../include/engine/referee.h"
 #include "../../../include/interface/renderer.h"
+#include "../../../include/engine/mechanics.h"
 
 using namespace std;
 
@@ -61,11 +62,13 @@ void runPvE() {
     state.currentPlayerIndex = 0;
 
     // Legacy tracking
-    GameSnapshot lastSnapShot;
+    GameState lastSnapShot = state;
+
     LastMoveInfo lastMove;
     lastMove.exists = false;
     lastMove.playerIndex = -1;
     bool canChallenge = false;
+
     bool dictActive = gDictionary.loadFromFile("csw24.txt");
     if (!dictActive) cout << "WARNING: Dictionary not loaded.\n";
 
@@ -82,61 +85,45 @@ void runPvE() {
             Renderer::printRack(state.players[0].rack);
         }
 
-        if (handleSixPassEndGame(state.players)) {
+        if (handleSixPassEndGame(state)) break;
+
+        if (handleEmptyRackEndGame(state,
+                                    bonusBoard,
+                                    lastSnapShot,
+                                    lastMove,
+                                    canChallenge,
+                                    controllers[pIdx])) {
             break;
         }
-
-        if (handleEmptyRackEndGame(bonusBoard,
-                                   state.board,
-                                   state.blanks,
-                                   state.bag,
-                                   state.players,        // Array of 2 players
-                                   lastSnapShot,
-                                   lastMove,
-                                   pIdx,                 // int reference
-                                   canChallenge,         // bool reference
-                                   dictActive,
-                                   controllers[pIdx])) { // Controller pointer
-            break;
-                                   }
 
         // Get Move
         Move move = controllers[pIdx]->getMove(bonusBoard, state.board, state.blanks, state.bag,
                                                current, state.players[1-pIdx], pIdx + 1);
 
         if (move.type == MoveType::PASS) {
-            passTurn(state.players, pIdx, canChallenge, lastMove);
-            state.currentPlayerIndex = 1 - state.currentPlayerIndex; // Sync index
+            passTurn(state, canChallenge, lastMove);
+            state.currentPlayerIndex = 1 - state.currentPlayerIndex;
             continue;
         }
 
         if (move.type == MoveType::QUIT) {
-            if (handleQuit(state.players, pIdx)) break;
+            if (handleQuit(state)) break;
             continue;
         }
 
         if (move.type == MoveType::CHALLENGE) {
-            challengeMove(bonusBoard,
-                          state.board,
-                          state.blanks,
-                          state.bag,
-                          state.players,
-                          lastSnapShot,
-                          lastMove,
-                          pIdx,
-                          canChallenge,
-                          dictActive);
+            challengeMove(state, bonusBoard, lastSnapShot, lastMove, canChallenge);
             continue;
         }
 
         if (move.type == MoveType::EXCHANGE) {
-            if (executeExchangeMove(state.bag, current, move)) {
+            if (executeExchangeMove(state, move)) {
                 lastMove.exists = false;
                 canChallenge = false;
                 state.currentPlayerIndex = 1 - state.currentPlayerIndex;
             } else {
-                 if (pIdx == 1) { // AI failed exchange
-                    passTurn(state.players, pIdx, canChallenge, lastMove);
+                 if (pIdx == 1) {
+                    passTurn(state, canChallenge, lastMove);
                     state.currentPlayerIndex = 1 - state.currentPlayerIndex;
                  }
             }
@@ -144,18 +131,14 @@ void runPvE() {
         }
 
         if (move.type == MoveType::PLAY) {
-            // NEW ENGINE LOGIC
             MoveResult result = Referee::validateMove(state, move, bonusBoard, gDictionary);
-
             if (result.success) {
-                // Snapshot
-                takeSnapshot(lastSnapShot, state.board, state.blanks, state.players, state.bag);
+                // UPDATED: Use Mechanics
+                Mechanics::commitSnapshot(lastSnapShot, state);
+                Mechanics::applyMove(state, move, result.score);
 
-                // Act
-                applyMoveToState(state, move, result.score);
                 cout << "Move Valid! Score: " << result.score << endl;
 
-                // Update History
                 lastMove.exists = true;
                 lastMove.playerIndex = pIdx;
                 lastMove.startRow = move.row;
@@ -164,35 +147,21 @@ void runPvE() {
                 lastMove.word = move.word;
                 canChallenge = true;
 
-                // AI Challenge Check (If Human Played)
                 bool turnSwitched = false;
                 if (pIdx == 0) {
                      AIPlayer* ai = dynamic_cast<AIPlayer*>(controllers[1]);
                      if (ai && ai->shouldChallenge(move, state.board)) {
-                         challengePhrase();
-
-                         int challengerIdx = 1;
-                         challengeMove(bonusBoard,
-                                       state.board,
-                                       state.blanks,
-                                       state.bag,
-                                       state.players,
-                                       lastSnapShot,
-                                       lastMove,
-                                       challengerIdx,
-                                       canChallenge,
-                                       dictActive); // Challenger index 1
-                         state.currentPlayerIndex = 1; // AI takes turn if successful (simplified)
+                         // AI Challenges
+                         challengeMove(state, bonusBoard, lastSnapShot, lastMove, canChallenge);
+                         state.currentPlayerIndex = 1;
                          turnSwitched = true;
                      }
                 }
-
                 if (!turnSwitched) state.currentPlayerIndex = 1 - state.currentPlayerIndex;
-
             } else {
                 cout << "Invalid Move: " << result.message << endl;
-                if (pIdx == 1) { // AI Invalid
-                     passTurn(state.players, pIdx, canChallenge, lastMove);
+                if (pIdx == 1) {
+                     passTurn(state, canChallenge, lastMove);
                      state.currentPlayerIndex = 1 - state.currentPlayerIndex;
                 }
             }

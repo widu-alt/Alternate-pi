@@ -14,6 +14,7 @@
 #include "../../../include/human_player.h"
 #include "../../../include/modes/Home/home.h"
 #include "../../../include/interface/renderer.h"
+#include "../../../include/engine/mechanics.h"
 
 using namespace std;
 
@@ -40,9 +41,8 @@ void runPvP() {
 
     state.currentPlayerIndex = 0;
 
-    // Legacy variables needed for "Undo/Challenge" logic
-    // (We keep these so handleEmptyRackEndGame etc. still work)
-    GameSnapshot lastSnapShot;
+    GameState lastSnapShot = state;
+
     LastMoveInfo lastMove;
     lastMove.exists = false;
     lastMove.playerIndex = -1;
@@ -62,7 +62,6 @@ void runPvP() {
 
     while (true) {
         int pIdx = state.currentPlayerIndex;
-        // Use references for cleaner code
         Player& current = state.players[pIdx];
         Player& opponent = state.players[1 - pIdx];
 
@@ -72,22 +71,10 @@ void runPvP() {
         cout << "Player " << (pIdx + 1) << "'s Rack" << endl;
         Renderer::printRack(current.rack);
 
-        if (handleSixPassEndGame(state.players)) {
-            break;
-        }
+        if (handleSixPassEndGame(state)) break;
 
         // FIX: Update arguments to use 'state' members
-        if (handleEmptyRackEndGame(bonusBoard,
-                                   state.board,
-                                   state.blanks,
-                                   state.bag,
-                                   state.players,
-                                   lastSnapShot,
-                                   lastMove,
-                                   pIdx,
-                                   canChallenge,
-                                   dictActive,
-                                   controllers[pIdx])) {
+        if (handleEmptyRackEndGame(state, bonusBoard, lastSnapShot, lastMove, canChallenge, controllers[pIdx])) {
             break;
         }
 
@@ -103,31 +90,23 @@ void runPvP() {
         // --- HANDLING MOVES ---
 
         if (move.type == MoveType::PASS) {
-            // FIX: Pass 'state.players'
-            passTurn(state.players, pIdx, canChallenge, lastMove);
-            // State updates happen inside passTurn, but we ensure index sync just in case
+            passTurn(state, canChallenge, lastMove);
             state.currentPlayerIndex = 1 - state.currentPlayerIndex;
             continue;
         }
 
         if (move.type == MoveType::QUIT) {
-            if (handleQuit(state.players, pIdx)) {
-                break;
-            }
+            if (handleQuit(state)) break;
             continue;
         }
 
         if (move.type == MoveType::CHALLENGE) {
-            // FIX: Pass 'state' members
-            challengeMove(bonusBoard, state.board, state.blanks, state.bag, state.players,
-                          lastSnapShot, lastMove, pIdx, canChallenge, dictActive);
+            challengeMove(state, bonusBoard, lastSnapShot, lastMove, canChallenge);
             continue;
         }
 
         if (move.type == MoveType::EXCHANGE) {
-            // FIX: Pass 'state.bag'
-            bool success = executeExchangeMove(state.bag, current, move);
-
+            bool success = executeExchangeMove(state, move);
             if (success) {
                 lastMove.exists = false;
                 canChallenge = false;
@@ -137,32 +116,21 @@ void runPvP() {
         }
 
         if (move.type == MoveType::PLAY) {
-            // --- NEW REFEREE LOGIC START ---
-
-            // 1. Validate (The Judge)
             MoveResult result = Referee::validateMove(state, move, bonusBoard, gDictionary);
-
             if (result.success) {
-                // Save Snapshot for "Undo" (Legacy support)
-                // We manually construct the snapshot from current state
-                takeSnapshot(lastSnapShot, state.board, state.blanks, state.players, state.bag);
 
-                // 2. Apply (The Mutator)
-                applyMoveToState(state, move, result.score);
+                Mechanics::commitSnapshot(lastSnapShot, state);
+                Mechanics::applyMove(state, move, result.score);
 
                 cout << "Move Successful! Points: " << result.score << endl;
-
-                // Update Legacy Tracking (for EndGame checks)
                 lastMove.exists = true;
                 lastMove.playerIndex = pIdx;
                 lastMove.startRow = move.row;
                 lastMove.startCol = move.col;
                 lastMove.horizontal = move.horizontal;
-                canChallenge = true; // Technically redundant if Referee validates, but keeps legacy flow valid
-
-                // Switch Turn
+                lastMove.word = move.word;
+                canChallenge = true;
                 state.currentPlayerIndex = 1 - state.currentPlayerIndex;
-
             } else {
                 cout << "Invalid Move: " << result.message << endl;
             }
