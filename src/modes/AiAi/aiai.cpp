@@ -12,6 +12,7 @@
 #include "../../../include/engine/tiles.h"
 #include "../../../include/engine/rack.h"
 #include "../../../include/engine/dictionary.h"
+#include "../../../include/engine/game_director.h"
 #include "../../../include/choices.h"
 #include "../../../include/ai_player.h"
 #include "../../../include/modes/Home/home.h"
@@ -23,17 +24,7 @@
 
 using namespace std;
 
-// Global mutex to prevent threads from garbling the console output
-static std::mutex g_io_mutex;
-
-// Stats
-struct MatchResult {
-    int scoreP1;
-    int scoreP2;
-    int winner; // 0 = P1, 1 = P2, -1 = Draw
-};
-
-// Encapsulate a single game logic for threading
+// Wrapper for threading
 MatchResult runSingleGame(AIStyle s1, AIStyle s2, int id, bool verbose) {
     AIPlayer bot1(s1);
     AIPlayer bot2(s2);
@@ -41,8 +32,7 @@ MatchResult runSingleGame(AIStyle s1, AIStyle s2, int id, bool verbose) {
 
     GameDirector::Config cfg;
     cfg.verbose = verbose;
-    // OPTIMIZATION: Disable challenges for max speed in AI v AI
-    cfg.allowChallenge = false;
+    cfg.allowChallenge = false; // Speed optimization for Simulation
 
     GameDirector director(&bot1, &bot2, b, cfg);
     return director.run(id);

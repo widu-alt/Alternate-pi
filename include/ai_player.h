@@ -17,44 +17,37 @@ enum class AIStyle {
 
 class AIPlayer : public PlayerController {
 public:
-    // Default to Championship Mode (CUTIE_PI)
-    AIPlayer(AIStyle style = AIStyle::CUTIE_PI);
+    AIPlayer(AIStyle style);
 
-    Move getMove(const Board &bonusBoard,
-                 const LetterBoard &letters,
-                 const BlankBoard &blankBoard,
-                 const TileBag &bag,
-                 const Player &me,
-                 const Player &opponent,
-                 int PlayerNum) override;
+    // FIX: Updated to match PlayerController's new signature
+    Move getMove(const GameState& state,
+                 const Board& bonusBoard,
+                 const LastMoveInfo& lastMove,
+                 bool canChallenge) override;
 
-    Move getEndGameDecision() override;
+    // FIX: Updated name from 'Decision' to 'Response'
+    Move getEndGameResponse(const GameState& state,
+                            const LastMoveInfo& lastMove) override;
 
-    // NEW: Wire the brain to the game loop
-    void observeMove(const Move& move, const LetterBoard& board) override;
+    // Hook for observing moves (Used by Cutie_Pi/Spy)
+    // Note: This is not in PlayerController, it is specific to AIPlayer.
+    void observeMove(const Move& move, const LetterBoard& board);
 
-    // Challenge Logic (Moved to PUBLIC so the Game Loop can ask the AI)
-    bool shouldChallenge(const Move &opponentMove, const LetterBoard &board) const;
-
-    // Legacy/Debug helper
-    void findAllMoves(const LetterBoard &letters, const TileRack &rack);
-
-    std::string getName() const;
+    std::string getName() const override;
 
 private:
     AIStyle style;
+    spectre::Spy spy;
     std::vector<spectre::MoveCandidate> candidates;
 
-    // THE BRAIN: Persistent Spy instance (remembers opponent history)
-    spectre::Spy spy;
+    // Internal Helpers
+    void findAllMoves(const LetterBoard& letters, const TileRack& rack);
+    int calculateStaticScore(const spectre::MoveCandidate& move,
+                             const LetterBoard& letters,
+                             const Board& bonusBoard);
 
-    struct DifferentialMove {
-        int row;
-        int col;
-        std::string word;
-    };
-
-    DifferentialMove calculateEngineMove(const LetterBoard &letters, const spectre::MoveCandidate &bestMove);
-    bool isRackBad(const TileRack &rack);
-    std::string getTilesToExchange(const TileRack &rack);
+    struct DifferentialMove { int row, col; std::string word; };
+    DifferentialMove calculateDifferential(const LetterBoard& letters, const spectre::MoveCandidate& best);
+    bool isRackBad(const TileRack& rack);
+    std::string getTilesToExchange(const TileRack& rack);
 };
