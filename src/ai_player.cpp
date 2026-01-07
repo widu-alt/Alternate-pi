@@ -185,21 +185,27 @@ Move AIPlayer::getMove(const GameState& state,
     // 1. CUTIE_PI: Check for Invalid Moves (The "Evil" Logic)
     if (style == AIStyle::CUTIE_PI && canChallenge && lastMove.exists) {
         bool foundInvalid = false;
+        string invalidWord = "";
+
+        cout << "[AI] Scanning " << lastMove.formedWords.size() << " words: ";
 
         // Scan all words formed by the opponent
         for (const auto& word : lastMove.formedWords) {
             if (!gDictionary.isValidWord(word)) {
                 foundInvalid = true;
+                invalidWord = word;
                 break;
             }
         }
 
         if (foundInvalid) {
-            // DRAMATIC PAUSE
-            std::this_thread::sleep_for(std::chrono::seconds(3));
+            cout << "\n\033[1;33m[!] AI DETECTED INVALID WORD: " << invalidWord << "\033[0m" << endl;
 
             // THE PHRASE
             challengePhrase();
+            
+            // DRAMATIC PAUSE
+            std::this_thread::sleep_for(std::chrono::seconds(3));
 
             // THE STRIKE
             return Move(MoveType::CHALLENGE);
