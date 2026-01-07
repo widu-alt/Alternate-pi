@@ -132,7 +132,7 @@ int calculateTrueScore(const spectre::MoveCandidate &move, const LetterBoard& le
     return totalScore;
 }
 
-AIPlayer::DifferentialMove AIPlayer::calculateEngineMove(const LetterBoard &letters, const spectre::MoveCandidate &bestMove) {
+AIPlayer::DifferentialMove AIPlayer::calculateDifferential(const LetterBoard &letters, const spectre::MoveCandidate &bestMove) {
     DifferentialMove diff;
     diff.row = -1;
     diff.col = -1;
@@ -239,7 +239,7 @@ Move AIPlayer::getMove(const GameState& state,
         return ex;
     }
 
-    DifferentialMove diff = calculateEngineMove(state.board, bestMove);
+    DifferentialMove diff = calculateDifferential(state.board, bestMove);
     if (diff.row == -1) return Move(MoveType::PASS);
 
     Move result;
