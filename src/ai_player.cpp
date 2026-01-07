@@ -203,7 +203,7 @@ Move AIPlayer::getMove(const GameState& state,
 
             // THE PHRASE
             challengePhrase();
-            
+
             // DRAMATIC PAUSE
             std::this_thread::sleep_for(std::chrono::seconds(3));
 

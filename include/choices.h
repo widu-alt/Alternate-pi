@@ -15,52 +15,16 @@
 using namespace std;
 
 // ================================
-//         GAME ACTION
+//         UI HELPERS
 // ================================
 
-Move parseMoveInput(const Board &bonusBoard,
-                    const LetterBoard &letters,
-                    const BlankBoard &blanks,
-                    const TileRack &rack,
-                    const TileBag &bag);
-
-bool executePlayMove(GameState& state,
-                     const Move &move,
-                     const Board &bonusBoard);
-
-bool executeExchangeMove(GameState& state, const Move &move);
-
-void passTurn(GameState& state, bool &canChallenge, LastMoveInfo &lastMove);
-
-// Show tile set from current player's prespective
-// unseen tiles are bag + opponent rack, reveal opponenet rack when bag <= 7 (Tile tracking)
+// Show tile set from current player's perspective
+// Unseen tiles are bag + opponent rack.
+// Reveals opponent rack only when bag <= 7 (Tile tracking rule)
 void showTileSet(const TileBag &bag, const Player players[2], int currentPlayer);
 
-// Handle a CHALLENGE command;
-// Uses lastSnapshot to undo the last move on successful challenge.
-// Does NOT change current player.
-void challengeMove(GameState& state,
-                   const Board &bonusBoard,
-                   const GameState &lastSnapshot,
-                   LastMoveInfo &lastMove,
-                   bool &canChallenge);
-
-// ================================
-//         END GAME RULES
-// ================================
-
-// Returns true if game ended and scores are printed.
-bool handleSixPassEndGame(GameState& state);
-
-bool handleEmptyRackEndGame(GameState& state,
-                            const Board &bonusBoard,
-                            GameState &lastSnapshot,
-                            LastMoveInfo &lastMove,
-                            bool &canChallenge,
-                            PlayerController* controller);
-
-// Handle resignation
-bool handleQuit(GameState& state);
+// Note: All Game Logic (Play, Exchange, Pass, Challenge, EndGame)
+// has been moved to src/engine/game_director.cpp
 
 
 

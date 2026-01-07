@@ -20,8 +20,8 @@ Move HumanPlayer::getMove(const GameState& state,
     Player opponentCopy = state.players[1 - state.currentPlayerIndex];
     TileRack &myRack = meCopy.rack;
 
-    // Using const_cast only because your snippet used it for handleRackLogic
-    //Ideally we shouldn't modify bag in getMove, but sticking to your logic.
+    // We use const_cast because handleRackLogic modifies the rack/bag
+    // locally for swaps/shuffles before a move is committed.
     TileBag &mutableBag = const_cast<TileBag&>(state.bag);
 
     int playerNum = state.currentPlayerIndex + 1;
@@ -141,7 +141,8 @@ Move HumanPlayer::handleRackLogic(TileRack &rack, TileBag &bag) {
     } else {
         cout << "\nInvalid Rack command\n";
     }
-    return Move(MoveType::PASS); // Return dummy PASS type (checked as NONE in loop)
+    // Return dummy PASS type (checked as != EXCHANGE in loop)
+    return Move(MoveType::PASS);
 }
 
 Move HumanPlayer::parseMoveInput(const Board &bonusBoard,
@@ -161,7 +162,7 @@ Move HumanPlayer::parseMoveInput(const Board &bonusBoard,
 
     if (pos.size() < 2 || pos.size() > 3) {
         cout << "Invalid Position\n";
-        return Move(MoveType::PASS); // Treat failure as return to menu
+        return Move(MoveType::PASS);
     }
 
     char rowChar = static_cast<char>(toupper(static_cast<unsigned char>(pos[0])));
@@ -188,8 +189,7 @@ Move HumanPlayer::parseMoveInput(const Board &bonusBoard,
     // Normalize word to upper
     for(auto &c : tempMove.word) c = toupper(c);
 
-    // PREVIEW via Referee
-    // Note: We use the actual GameState here because Referee::validateMove does not modify it.
+    // PREVIEW via Referee (Using state from arguments)
     MoveResult preview = Referee::validateMove(state, tempMove, bonusBoard, gDictionary);
 
     if (!preview.success) {
