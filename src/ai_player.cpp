@@ -3,6 +3,8 @@
 #include "../include/tile_tracker.h"
 #include "../include/spectre/move_generator.h"
 #include "../include/spectre/vanguard.h"
+#include "../include/engine/dictionary.h"
+#include "../include/modes/PvE/pve.h"
 #include <cstring>
 #include <algorithm>
 #include <iostream>
@@ -182,9 +184,25 @@ Move AIPlayer::getMove(const GameState& state,
 {
     // 1. CUTIE_PI: Check for Invalid Moves (The "Evil" Logic)
     if (style == AIStyle::CUTIE_PI && canChallenge && lastMove.exists) {
-        // Iterate known formed words provided by Director
+        bool foundInvalid = false;
+
+        // Scan all words formed by the opponent
         for (const auto& word : lastMove.formedWords) {
-            if (!gDictionary.isValidWord(word)) return Move(MoveType::CHALLENGE);
+            if (!gDictionary.isValidWord(word)) {
+                foundInvalid = true;
+                break;
+            }
+        }
+
+        if (foundInvalid) {
+            // DRAMATIC PAUSE
+            std::this_thread::sleep_for(std::chrono::seconds(3));
+
+            // THE PHRASE
+            challengePhrase();
+
+            // THE STRIKE
+            return Move(MoveType::CHALLENGE);
         }
     }
 
