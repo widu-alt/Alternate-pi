@@ -63,7 +63,7 @@ bool handleEmptyRackEndGame(GameState& state,
     }
 
     // Ask the player who just went out what they want to do (usually automatic, but framework allows choice)
-    Move decision = controller->getEndGameDecision();
+    Move decision = controller->getEndGameResponse(state, lastMove);
 
     if (decision.type == MoveType::PASS) {
         Mechanics::applyEmptyRackBonus(state, pIdx);
@@ -122,8 +122,8 @@ void challengeMove(GameState& state,
         return;
     }
 
-    string mainWord = extractMainWord(state.board, lastMove.startRow, lastMove.startCol, lastMove.horizontal);
-    vector<string> crossWords = crossWordList(state.board, lastSnapshot.board, lastMove.startRow, lastMove.startCol, lastMove.horizontal);
+    string mainWord = extractMainWord(state.board, lastMove.move.row, lastMove.move.col, lastMove.move.horizontal);
+    vector<string> crossWords = crossWordList(state.board, lastSnapshot.board, lastMove.move.row, lastMove.move.col, lastMove.move.horizontal);
 
     cout << "Challenging Main: " << mainWord << "\n";
 

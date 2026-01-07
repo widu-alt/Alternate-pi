@@ -7,6 +7,7 @@
 #include "../../../include/engine/tiles.h"
 #include "../../../include/engine/rack.h"
 #include "../../../include/engine/dictionary.h"
+#include "../../../include/engine/game_director.h"
 #include "../../../include/choices.h"
 #include "../../../include/modes/PvP/pvp.h"
 #include "../../../include/engine/state.h"

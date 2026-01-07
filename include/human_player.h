@@ -4,21 +4,15 @@
 
 class HumanPlayer : public PlayerController {
 public:
-    Move getMove(const Board &bonusBoard,
-                 const LetterBoard &letters,
-                 const BlankBoard &blankBoard,
-                 const TileBag &bag,
-                 const Player &me,
-                 const Player &opponent,
-                 int playerNum) override;
+    // FIX: Updated signature to match PlayerController
+    Move getMove(const GameState& state,
+                 const Board &bonusBoard,
+                 const LastMoveInfo& lastMove,
+                 bool canChallenge) override;
 
-    Move getEndGameDecision() override;
+    // FIX: Added missing override
+    Move getEndGameResponse(const GameState& state,
+                            const LastMoveInfo& lastMove) override;
 
-private:
-    Move handleRackLogic(TileRack &rack, TileBag &bag);
-    Move parseMoveInput(const Board &bonusBoard,
-                        const LetterBoard &letters,
-                        const BlankBoard &blankBoard,
-                        const TileRack &rack,
-                        const TileBag &bag);
+    std::string getName() const override { return "Human"; }
 };
