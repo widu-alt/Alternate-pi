@@ -57,12 +57,9 @@ bool handleEmptyRackEndGame(GameState& state,
                             PlayerController* controller) {
 
     int pIdx = lastMove.playerIndex;
-    // Condition: Previous move existed, player index valid, and that player is now out of tiles
-    if (!(lastMove.exists && pIdx != -1 && state.players[pIdx].rack.empty())) {
-        return false;
-    }
+    if (!(lastMove.exists && pIdx != -1 && state.players[pIdx].rack.empty())) return false;
 
-    // Ask the player who just went out what they want to do (usually automatic, but framework allows choice)
+    // Correct interface call
     Move decision = controller->getEndGameResponse(state, lastMove);
 
     if (decision.type == MoveType::PASS) {
@@ -73,12 +70,7 @@ bool handleEmptyRackEndGame(GameState& state,
     }
 
     if (decision.type == MoveType::CHALLENGE) {
-        // Execute challenge logic
         challengeMove(state, bonusBoard, lastSnapshot, lastMove, canChallenge);
-
-        // If challenge FAILED (meaning the winning move was VALID), and bag is empty -> Game Over
-        // If challenge SUCCEEDED, the move was undone, tiles returned, game continues.
-
         if (state.bag.empty() && state.players[pIdx].rack.empty()) {
             Mechanics::applyEmptyRackBonus(state, pIdx);
             cout << "\nGame Over.\n";
@@ -91,19 +83,16 @@ bool handleEmptyRackEndGame(GameState& state,
 }
 
 void passTurn(GameState& state, bool &canChallenge, LastMoveInfo &lastMove) {
-
     cout << "Player " << (state.currentPlayerIndex + 1) << " passes.\n";
     state.players[state.currentPlayerIndex].passCount++;
     canChallenge = false;
-    lastMove.exists = false;
+    lastMove.reset();
 }
 
 void showTileSet(const TileBag &bag, const Player players[2], int currentPlayer) {
-
     int opponent = 1 - currentPlayer;
     bool revealOpponent = (static_cast<int>(bag.size()) <= 7);
-
-    // players[opponent].rack is a TileRack = vector<Tile>
+    // Assumes printTileBag is declared in tiles.h or similar
     printTileBag(bag, players[opponent].rack, revealOpponent);
 }
 
@@ -122,11 +111,11 @@ void challengeMove(GameState& state,
         return;
     }
 
+    // Access via nested move struct
     string mainWord = extractMainWord(state.board, lastMove.move.row, lastMove.move.col, lastMove.move.horizontal);
     vector<string> crossWords = crossWordList(state.board, lastSnapshot.board, lastMove.move.row, lastMove.move.col, lastMove.move.horizontal);
 
     cout << "Challenging Main: " << mainWord << "\n";
-
     bool invalid = !gDictionary.isValidWord(mainWord);
     if(invalid) cout << "INVALID: " << mainWord << endl;
 
@@ -142,32 +131,25 @@ void challengeMove(GameState& state,
         cout << "Reverting state...\n";
         Mechanics::restoreSnapshot(state, lastSnapshot);
         canChallenge = false;
-        lastMove.exists = false;
+        lastMove.reset();
         cout << "Board reverted. It is now Player " << (state.currentPlayerIndex + 1) << "'s turn.\n";
     } else {
         cout << "\n>>> CHALLENGE FAILED! <<<\n";
-        // Penalty: Opponent gets +5 Points
         state.players[lastMove.playerIndex].score += 5;
         cout << "Player " << (lastMove.playerIndex + 1) << " awarded +5 points.\n";
         canChallenge = false;
-        lastMove.exists = false;
+        lastMove.exists = true;
         cout << "Move stands.\n";
     }
-
     cout << "Press ENTER...";
     cin.ignore(); cin.get();
 }
 
-// Handle Resignation
 bool handleQuit(GameState &state) {
-
     cout << "\nGame Over.\n";
-
     cout << "\nPlayer " << (state.currentPlayerIndex + 1) << " Resigns.\n";
-
     cout << "Final Scores:\n";
     cout << "Player 1: " << state.players[0].score << endl;
     cout << "Player 2: " << state.players[1].score << endl;
-
     return true;
 }

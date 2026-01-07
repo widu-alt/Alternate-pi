@@ -7,6 +7,8 @@
 
 #include <mutex>
 
+#include <mutex>
+
 struct MatchResult {
     int scoreP1;
     int scoreP2;
@@ -16,15 +18,18 @@ struct MatchResult {
 class GameDirector {
 public:
     struct Config {
-        bool verbose = true;
-        bool allowChallenge = true;
-        bool sixPassEndsGame = true;
-        int delayMs = 0;
+        bool verbose;
+        bool allowChallenge;
+        bool sixPassEndsGame;
+        int delayMs;
+
+        // Explicit Constructor to fix compiler error
+        Config() : verbose(true), allowChallenge(true), sixPassEndsGame(true), delayMs(0) {}
     };
 
     GameDirector(PlayerController* p1, PlayerController* p2,
                  const Board& bonusBoard,
-                 Config cfg = Config() );
+                 Config cfg = Config());
 
     MatchResult run(int gameId = 1);
 
@@ -35,7 +40,7 @@ private:
 
     // Internal State
     GameState state;
-    GameState snapshot; // State BEFORE the last move (for reverting)
+    GameState snapshot;
     LastMoveInfo lastMove;
     bool canChallenge;
 
@@ -43,6 +48,6 @@ private:
     void initGame();
     bool processTurn(int pIdx);
     void executePlay(int pIdx, Move& move);
-    bool executeChallenge(int challengerIdx); // Returns true if challenge succeeded
+    bool executeChallenge(int challengerIdx);
     void log(const std::string& msg);
 };

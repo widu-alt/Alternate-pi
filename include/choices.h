@@ -18,6 +18,12 @@ using namespace std;
 //         GAME ACTION
 // ================================
 
+Move parseMoveInput(const Board &bonusBoard,
+                    const LetterBoard &letters,
+                    const BlankBoard &blanks,
+                    const TileRack &rack,
+                    const TileBag &bag);
+
 bool executePlayMove(GameState& state,
                      const Move &move,
                      const Board &bonusBoard);
