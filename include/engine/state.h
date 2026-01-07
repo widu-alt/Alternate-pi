@@ -12,24 +12,27 @@ struct GameState {
     bool dictActive = true;
 
     // Helper to create a deep copy ( For AI simulation )
-    GameState close() const {
+    GameState clone() const {
         return *this;
     }
-};
-
-// Snapshot of game state before last word move ( for Undo/Challenge )
-struct GameSnapshot {
-    LetterBoard letters;
-    BlankBoard blanks;
-    TileBag bag;
-    Player players[2];
 };
 
 struct LastMoveInfo {
     bool exists = false;
     int playerIndex = -1;
-    int startRow = 0;
-    int startCol = 0;
-    bool horizontal = false;
-    std::string word;
+
+    Move move;
+    int score = 0;
+    bool emptiedRack = false; // flag for Endgame detection
+
+    // Context for challenges (populated by Director)
+    vector<string> formedWords;
+
+    void reset() {
+        exists = false;
+        playerIndex = -1;
+        score = 0;
+        emptiedRack = false;
+        formedWords.clear();
+    }
 };

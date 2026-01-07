@@ -3,27 +3,25 @@
 #include "move.h"
 #include "engine/board.h"
 #include "engine/rack.h"
+#include "engine/state.h"
 #include "engine/tiles.h"
 
 class PlayerController {
 public:
-    virtual ~PlayerController() {}
+    virtual ~PlayerController() = default;
 
-    // Calculate and return the best move based on the current board state
-    virtual Move getMove(const Board &bonusBoard,
-                         const LetterBoard &letters,
-                         const BlankBoard &blankBoard,
-                         const TileBag &bag,
-                         const Player &me,
-                         const Player &opponent,
-                         int PlayerNum) = 0;
+    // Standard Move Generation
+    // 'lastMove' contains context (words formed, did opponent empty rack?)
+    // 'canChallenge' tells the bot if the rules allow a challenge right now
+    virtual Move getMove(const GameState& state,
+                         const Board& bonusBoard,
+                         const LastMoveInfo& lastMove,
+                         bool canChallenge) = 0;
 
-    // Handle end-game specific decisions (like passing or clearing rack)
-    virtual Move getEndGameDecision() = 0;
+    // Explicit hook for the "Opponent Emptied Rack" scenario.
+    // Must return MoveType::PASS (Accept loss/end) or MoveType::CHALLENGE (Fight it)
+    virtual Move getEndGameResponse(const GameState& state,
+                                    const LastMoveInfo& lastMove) = 0;
 
-    // NEW: Allows the controller to observe the opponent's move.
-    // This is required for the AI (Spy) to update its probability model based on
-    // what the opponent played or exchanged.
-    // We provide a default empty implementation so HumanPlayer doesn't need to override it.
-    virtual void observeMove(const Move& move, const LetterBoard& board) {}
+    virtual std::string getName() const { return "Player"; }
 };

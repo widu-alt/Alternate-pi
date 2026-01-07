@@ -48,4 +48,6 @@ add_executable(scrabblePi src/engine/board.cpp
         include/interface/renderer.h
         src/interface/renderer.cpp
         include/engine/mechanics.h
-        src/engine/mechanics.cpp)
+        src/engine/mechanics.cpp
+        include/engine/game_director.h
+        src/engine/game_director.cpp)

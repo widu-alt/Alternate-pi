@@ -34,151 +34,18 @@ struct MatchResult {
 };
 
 // Encapsulate a single game logic for threading
-MatchResult runSingleGame(AIStyle styleP1, AIStyle styleP2, int gameId, bool verbose) {
-    // 1. Init State
-    GameState state;
-    clearLetterBoard(state.board);
-    clearBlankBoard(state.blanks);
-    state.bag = createStandardTileBag();
-    shuffleTileBag(state.bag);
-    Board bonusBoard = createBoard(); // Static const board creation is fast
+MatchResult runSingleGame(AIStyle s1, AIStyle s2, int id, bool verbose) {
+    AIPlayer bot1(s1);
+    AIPlayer bot2(s2);
+    Board b = createBoard();
 
-    // Ensuring dictionary is loaded (Global One-Time Check)
-    if (gDictionary.nodes.empty()) {
-        gDictionary.loadFromFile("csw24.txt");
-    }
+    GameDirector::Config cfg;
+    cfg.verbose = verbose;
+    // OPTIMIZATION: Disable challenges for max speed in AI v AI
+    cfg.allowChallenge = false;
 
-    // Setup AI Controllers
-    AIPlayer bot1(styleP1);
-    AIPlayer bot2(styleP2);
-    PlayerController* controllers[2] = { &bot1, &bot2 };
-
-    // Initial Draw
-    for (int i=0; i < 2; i++) {
-        drawTiles(state.bag, state.players[i].rack, 7);
-        state.players[i].score = 0;
-        state.players[i].passCount = 0;
-    }
-    state.currentPlayerIndex = 0;
-
-    bool gameOver = false;
-
-    auto printState = [&](const string& action, const Move& move) {
-        if (!verbose) return;
-        std::lock_guard<std::mutex> lock(g_io_mutex);
-
-        cout << "\n------------------------------------------------------------\n";
-        cout << "GAME " << gameId << " | Turn: Player " << (state.currentPlayerIndex + 1) << " ("
-             << (state.currentPlayerIndex == 0 ? "P1" : "P2") << ")\n";
-
-        cout << "Action: " << action;
-        if (move.type == MoveType::PLAY) cout << " '" << move.word << "' at " << (char)('A' + move.row) << (move.col + 1);
-        if (move.type == MoveType::EXCHANGE) cout << " Tiles: " << move.exchangeLetters;
-        cout << endl;
-
-        Renderer::printBoard(bonusBoard, state.board);
-
-        cout << "Rack P1: "; Renderer::printRack(state.players[0].rack);
-        cout << "Rack P2: "; Renderer::printRack(state.players[1].rack);
-
-        cout << "Scores: P1=" << state.players[0].score << " | P2=" << state.players[1].score << endl;
-        cout << "------------------------------------------------------------\n";
-    };
-
-    while (!gameOver) {
-        int pIdx = state.currentPlayerIndex;
-        Player& current = state.players[pIdx];
-        Player& opponent = state.players[1 - pIdx];
-
-        // --- A. End Game Checks ---
-
-        // 1. Six-Pass Rule (Draw)
-        if (state.players[0].passCount >= 3 && state.players[1].passCount >= 3) {
-            Mechanics::applySixPassPenalty(state);
-            gameOver = true;
-            break;
-        }
-
-        // --- B. AI Move Generation ---
-        Move move = controllers[pIdx]->getMove(bonusBoard, state.board, state.blanks, state.bag,
-                                               current, opponent, pIdx + 1);
-
-        // --- C. Execution (No "Choices" middleware) ---
-
-        if (move.type == MoveType::PASS) {
-            state.players[pIdx].passCount++;
-
-            if (verbose) {
-                std::lock_guard<std::mutex> lock(g_io_mutex);
-                cout << "Game " << gameId << " P" << (pIdx+1) << ": PASS\n";
-            }
-        }
-        else if (move.type == MoveType::EXCHANGE) {
-            // Mechanics handles the rack swap + passCount increment
-            if (Mechanics::attemptExchange(state, move)) {
-                if (verbose) {
-                    std::lock_guard<std::mutex> lock(g_io_mutex);
-                    cout << "Game " << gameId << " P" << (pIdx+1) << ": EXCHANGE " << move.exchangeLetters << "\n";
-                }
-            } else {
-                // Should not happen with correct AI, but fallback to Pass
-                state.players[pIdx].passCount++;
-            }
-        }
-        else if (move.type == MoveType::PLAY) {
-            // 1. Validate & Score (Referee)
-            // Even though AI is "perfect", we need Referee to calculate the exact score points
-            MoveResult result = Referee::validateMove(state, move, bonusBoard, gDictionary);
-
-            if (result.success) {
-                // 2. Apply (Mechanics)
-                // This updates board, rack, score, refills tiles, and resets passCount
-                Mechanics::applyMove(state, move, result.score);
-
-                printState("PLAY", move);
-
-                // 3. Check for "Empty Rack" Victory immediately after a valid play
-                if (state.bag.empty() && state.players[pIdx].rack.empty()) {
-                    Mechanics::applyEmptyRackBonus(state, pIdx);
-                    gameOver = true;
-                }
-
-                if (verbose) {
-                    std::lock_guard<std::mutex> lock(g_io_mutex);
-                    cout << "Game " << gameId << " P" << (pIdx+1) << ": " << move.word
-                         << " (" << result.score << " pts)\n";
-                }
-            } else {
-                // AI made invalid move (Bug in Vanguard?) -> Treat as Pass to prevent infinite loops
-                state.players[pIdx].passCount++;
-                if (verbose) {
-                    std::lock_guard<std::mutex> lock(g_io_mutex);
-                    cout << "ERROR: Game " << gameId << " AI Invalid Move: " << result.message << endl;
-                }
-            }
-        }
-        // Switch Turn
-        if (!gameOver) {
-            state.currentPlayerIndex = 1 - state.currentPlayerIndex;
-        }
-    }
-
-    // 3. Result Compilation
-    MatchResult matchRes;
-    if (state.players[0].score > state.players[1].score) matchRes.winner = 0;
-    else if (state.players[1].score > state.players[0].score) matchRes.winner = 1;
-    else matchRes.winner = -1; // Draw
-
-    matchRes.scoreP1 = state.players[0].score;
-    matchRes.scoreP2 = state.players[1].score;
-
-    if (verbose) {
-        std::lock_guard<std::mutex> lock(g_io_mutex);
-        cout << "Game " << gameId << " Finished. "
-             << matchRes.scoreP1 << " - " << matchRes.scoreP2 << endl;
-    }
-
-    return matchRes;
+    GameDirector director(&bot1, &bot2, b, cfg);
+    return director.run(id);
 }
 
 void runAiAi() {
