@@ -5,6 +5,7 @@
 #include "../include/spectre/vanguard.h"
 #include "../include/engine/dictionary.h"
 #include "../include/modes/PvE/pve.h"
+
 #include <cstring>
 #include <algorithm>
 #include <iostream>
@@ -182,14 +183,15 @@ Move AIPlayer::getMove(const GameState& state,
                        const LastMoveInfo& lastMove,
                        bool canChallenge)
 {
-    // 1. CUTIE_PI: Check for Invalid Moves (The "Evil" Logic)
-    if (style == AIStyle::CUTIE_PI && canChallenge && lastMove.exists) {
+    // ---------------------------------------------------------
+    // 1. THE VALIDATION CHECK (Runs for BOTH Bots)
+    // ---------------------------------------------------------
+    // Note: canChallenge is ONLY true in PvE (Human vs Bot).
+    // It is FALSE in AiAi (Bot vs Bot), ensuring bots never challenge each other.
+    if (canChallenge && lastMove.exists) {
         bool foundInvalid = false;
         string invalidWord = "";
 
-        cout << "[AI] Scanning " << lastMove.formedWords.size() << " words: ";
-
-        // Scan all words formed by the opponent
         for (const auto& word : lastMove.formedWords) {
             if (!gDictionary.isValidWord(word)) {
                 foundInvalid = true;
@@ -199,15 +201,12 @@ Move AIPlayer::getMove(const GameState& state,
         }
 
         if (foundInvalid) {
-            cout << "\n\033[1;33m[!] AI DETECTED INVALID WORD: " << invalidWord << "\033[0m" << endl;
+            cout << getName() << "\nDETECTED INVALID WORD: " << invalidWord << endl;
 
-            // THE PHRASE
+            // THE RULE OF COOL
             challengePhrase();
-
-            // DRAMATIC PAUSE
             std::this_thread::sleep_for(std::chrono::seconds(3));
 
-            // THE STRIKE
             return Move(MoveType::CHALLENGE);
         }
     }
