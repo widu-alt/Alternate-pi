@@ -3,11 +3,12 @@
 #include "../../include/spectre/move_generator.h"
 #include "../../include/engine/mechanics.h"
 #include "../../include/engine/dictionary.h"
-#include "../../include/spectre/judge.h"
+// Removed Judge include since we don't use it here anymore
 #include <algorithm>
 #include <iostream>
 #include <cmath>
 #include <map>
+#include <random>
 
 using namespace std;
 
@@ -21,48 +22,45 @@ Spy::Spy() {
 void Spy::observeOpponentMove(const Move& move, const LetterBoard& preMoveBoard) {
     if (unseenPool.empty()) return;
 
-    // A. DETERMINE TILES PLAYED
-    // Since 'preMoveBoard' is the state BEFORE the move, any tile in the word
-    // that corresponds to an empty cell ' ' MUST have come from the rack.
+    // 1. DEDUCE PLAYED TILES
     std::vector<char> tilesPlayed;
-    int r = move.row;
-    int c = move.col;
-    int dr = move.horizontal ? 0 : 1;
-    int dc = move.horizontal ? 1 : 0;
+    int r = move.row; int c = move.col;
+    int dr = move.horizontal ? 0 : 1; int dc = move.horizontal ? 1 : 0;
 
     for (char letter : move.word) {
         if (preMoveBoard[r][c] == ' ') {
             tilesPlayed.push_back(letter);
         }
-        r += dr;
-        c += dc;
+        r += dr; c += dc;
     }
 
-    // B. CALCULATE ACTUAL SCORE
-    // Now we can accurately score the move because we have the pre-move board.
-    // (Mechanics::calculateMoveScore is designed to work on the board *as the move is being placed*)
-    // But strictly speaking, it expects the board to be the "Context".
-    // We pass preMoveBoard.
-    // Note: We need a BonusBoard. For now, we assume standard board or static access.
+    // 2. SCORE THE MOVE (The Truth)
     Board bonusBoard = createBoard();
     MoveCandidate mc;
     mc.row = move.row; mc.col = move.col; mc.isHorizontal = move.horizontal;
-    int len=0; while(len < move.word.size()) { mc.word[len] = move.word[len]; len++; } mc.word[len] = '\0';
 
+    int len = 0;
+    while (len < 15 && len < (int)move.word.size()) {
+        mc.word[len] = move.word[len];
+        len++;
+    }
+    mc.word[len] = '\0';
+
+    // FIX: Using Mechanics::calculateTrueScore
     int actualScore = Mechanics::calculateTrueScore(mc, preMoveBoard, bonusBoard);
 
-    // C. UPDATE PARTICLES
+    // 3. UPDATE PARTICLES
     double totalWeight = 0.0;
 
     for (auto& p : particles) {
-        // 1. HARD FILTER (Physical Possibility)
+        // A. HARD FILTER (Do they have the tiles?)
         std::vector<char> rackCopy = p.rack;
         bool possible = true;
 
         for (char t : tilesPlayed) {
             auto it = std::find(rackCopy.begin(), rackCopy.end(), t);
             if (it != rackCopy.end()) {
-                *it = ' '; // Mark used
+                *it = ' ';
             } else {
                 auto blankIt = std::find(rackCopy.begin(), rackCopy.end(), '?');
                 if (blankIt != rackCopy.end()) {
@@ -79,28 +77,71 @@ void Spy::observeOpponentMove(const Move& move, const LetterBoard& preMoveBoard)
             continue;
         }
 
-        // 2. SOFT FILTER (The Judge)
-        double rationality = Spy::evaluateRationality(rack, move, board);
-
+        // B. SOFT FILTER (Rationality Check)
+        // FIX: calling internal evaluateRationality instead of Judge
+        double rationality = evaluateRationality(p.rack, actualScore, preMoveBoard);
 
         p.weight *= rationality;
         totalWeight += p.weight;
     }
 
-    // D. RESAMPLE
+    // 4. RESAMPLE
     if (totalWeight < 0.0001) {
-        initParticles(); // Panic Reset
+        initParticles();
     } else {
         resampleParticles(totalWeight);
     }
 }
 
-// ... (Rest of Spy functions: updateGroundTruth, initParticles, resampleParticles remain the same) ...
+// FIX: Implemented the logic here instead of calling non-existent Judge function
+double Spy::evaluateRationality(const std::vector<char>& rack, int actualScore, const LetterBoard& board) {
+    // 1. Find the best score this rack *could* have gotten
+    int bestPossible = findBestPossibleScore(rack, board);
+
+    // 2. Compare
+    if (actualScore > bestPossible) return 0.0; // Should be impossible if generator is correct
+
+    int delta = bestPossible - actualScore;
+
+    // Probability Curve
+    if (delta == 0) return 1.0;
+    if (delta < 5)  return 0.9;
+    if (delta < 15) return 0.5;
+    if (delta < 30) return 0.1;
+    return 0.01;
+}
+
+int Spy::findBestPossibleScore(const std::vector<char>& rack, const LetterBoard& board) {
+    TileRack tRack;
+    for(char c : rack) {
+        Tile t; t.letter = c; t.points = 0;
+        tRack.push_back(t);
+    }
+
+    // Run Generator (Fast Mode)
+    // Note: This is computationally expensive.
+    // In production, we might limit this to Top 50 particles or simplify the search.
+    vector<MoveCandidate> moves = MoveGenerator::generate(board, tRack, gDictionary, false);
+
+    if (moves.empty()) return 0;
+
+    int maxScore = 0;
+    Board bonusBoard = createBoard();
+
+    for (const auto& m : moves) {
+        int s = Mechanics::calculateTrueScore(m, board, bonusBoard);
+        if (s > maxScore) maxScore = s;
+    }
+    return maxScore;
+}
+
 void Spy::updateGroundTruth(const LetterBoard& board, const TileRack& myRack, const TileBag& bag) {
     unseenPool.clear();
     TileTracker tracker;
+
     for(int r=0; r<15; r++) for(int c=0; c<15; c++)
         if(board[r][c] != ' ') tracker.markSeen(board[r][c]);
+
     for(const auto& t : myRack) tracker.markSeen(t.letter);
 
     string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ?";
@@ -108,7 +149,8 @@ void Spy::updateGroundTruth(const LetterBoard& board, const TileRack& myRack, co
         int count = tracker.getUnseenCount(c);
         for (int k=0; k<count; k++) unseenPool.push_back(c);
     }
-    initParticles(); // Reset for stability in V1
+
+    initParticles();
 }
 
 void Spy::initParticles() {
@@ -123,15 +165,18 @@ void Spy::initParticles() {
     }
 }
 
+// FIX: Added totalWeight parameter to match header
 void Spy::resampleParticles(double totalWeight) {
     std::vector<Particle> newParticles;
     newParticles.reserve(PARTICLE_COUNT);
+
     static thread_local std::mt19937 rng(std::random_device{}());
     std::uniform_real_distribution<double> dist(0.0, totalWeight);
 
     for (int i = 0; i < PARTICLE_COUNT; i++) {
         double r = dist(rng);
         double currentSum = 0.0;
+
         for (const auto& p : particles) {
             currentSum += p.weight;
             if (currentSum >= r) {
@@ -140,6 +185,7 @@ void Spy::resampleParticles(double totalWeight) {
             }
         }
     }
+
     for(auto& p : newParticles) p.weight = 1.0;
     particles = newParticles;
 }
