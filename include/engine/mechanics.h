@@ -1,10 +1,10 @@
 #pragma once
 #include "state.h"
 #include "types.h"
+#include "../spectre/move_generator.h"
 #include "../move.h"
 
 namespace Mechanics {
-
     // Applies a validated move to the state (Updates Board, Rack, Score, Bag)
     void applyMove(GameState& state, const Move& move, int score);
 
@@ -22,4 +22,6 @@ namespace Mechanics {
 
     // Player who finishes first gets bonus (twice the value of remaining tiles of opponent)
     void applyEmptyRackBonus(GameState& state, int winnerIdx);
+
+    int calculateTrueScore(const spectre::MoveCandidate &move, const LetterBoard& letters, const Board &bonusBoard);
 }

@@ -5,6 +5,7 @@
 #include "../include/spectre/vanguard.h"
 #include "../include/engine/dictionary.h"
 #include "../include/modes/PvE/pve.h"
+#include "../include/engine/mechanics.h"
 
 #include <cstring>
 #include <algorithm>
@@ -42,98 +43,6 @@ struct SearchRange {
     int minRow, maxRow, minCol, maxCol;
     bool isEmpty;
 };
-
-// Helper to calculate score for a specific move
-int calculateTrueScore(const spectre::MoveCandidate &move, const LetterBoard& letters, const Board &bonusBoard) {
-
-    int totalScore = 0;
-    int mainWordScore = 0;
-    int mainWordMultiplier = 1;
-    int tilesPlacedCount = 0;
-
-    int r = move.row;
-    int c = move.col;
-    int dr = move.isHorizontal ? 0 : 1;
-    int dc = move.isHorizontal ? 1 : 0;
-
-    for (char letter : move.word) {
-        if (letter == '\0') break;
-
-        if (r < 0 || r > 14 || c < 0 || c > 14) return -1000;
-
-        int letterScore = Heuristics::getTileValue(letter);
-        bool isNewlyPlaced = (letters[r][c] == ' ');
-
-        if (isNewlyPlaced) {
-            tilesPlacedCount++;
-            CellType bonus = bonusBoard[r][c];
-
-            if (bonus == CellType::DLS) letterScore *= 2;
-            else if (bonus == CellType::TLS) letterScore *= 3;
-
-            if (bonus == CellType::DWS) mainWordMultiplier *= 2;
-            else if (bonus == CellType::TWS) mainWordMultiplier *= 3;
-        }
-
-        mainWordScore += letterScore;
-
-        if (isNewlyPlaced) {
-            int pdr = move.isHorizontal ? 1 : 0;
-            int pdc = move.isHorizontal ? 0 : 1;
-            bool hasNeighbour = false;
-
-            int checkR1 = r - pdr;
-            int checkC1 = c - pdc;
-            if (checkR1 >= 0 && checkR1 < 15 && checkC1 >= 0 && checkC1 < 15 && letters[checkR1][checkC1] != ' ') hasNeighbour = true;
-
-            int checkR2 = r + pdr;
-            int checkC2 = c + pdc;
-            if (checkR2 >= 0 && checkR2 < 15 && checkC2 >= 0 && checkC2 < 15 && letters[checkR2][checkC2] != ' ') hasNeighbour = true;
-
-            if (hasNeighbour) {
-                int currR = r, currC = c;
-                while (currR - pdr >= 0 && currC - pdc >= 0 && letters[currR-pdr][currC-pdc] != ' ') {
-                    currR -= pdr;
-                    currC -= pdc;
-                }
-
-                int crossScore = 0;
-                int crossMult = 1;
-
-                while (currR < 15 && currC < 15) {
-                    char cellLetter = letters[currR][currC];
-                    if (currR == r && currC == c) {
-                        int crossLetterScore = Heuristics::getTileValue(letter);
-                        CellType crossBonus = bonusBoard[currR][currC];
-                        if (crossBonus == CellType::DLS) crossLetterScore *= 2;
-                        else if (crossBonus == CellType::TLS) crossLetterScore *= 3;
-                        if (crossBonus == CellType::DWS) crossMult *= 2;
-                        else if (crossBonus == CellType::TWS) crossMult *= 3;
-                        crossScore += crossLetterScore;
-                    } else if (cellLetter != ' ') {
-                        crossScore += Heuristics::getTileValue(cellLetter);
-                    } else {
-                        break;
-                    }
-                    currR += pdr;
-                    currC += pdc;
-                }
-                totalScore += (crossScore * crossMult);
-            }
-        }
-        r += dr;
-        c += dc;
-    }
-
-    if (strlen(move.word) > 1) {
-        totalScore += (mainWordScore * mainWordMultiplier);
-    }
-    if (tilesPlacedCount == 7) {
-        totalScore += 50;
-    }
-
-    return totalScore;
-}
 
 AIPlayer::DifferentialMove AIPlayer::calculateDifferential(const LetterBoard &letters, const spectre::MoveCandidate &bestMove) {
     DifferentialMove diff;
@@ -225,7 +134,7 @@ Move AIPlayer::getMove(const GameState& state,
 
         if (!candidates.empty()) {
             for (auto& cand : candidates) {
-                int boardScore = calculateTrueScore(cand, state.board, bonusBoard);
+                int boardScore = Mechanics::calculateTrueScore(cand, state.board, bonusBoard);
                 float leavePenalty = 0.0f;
                 for (int i = 0; cand.leave[i] != '\0'; i++) {
                     leavePenalty += Heuristics::getLeaveValue(cand.leave[i]);
