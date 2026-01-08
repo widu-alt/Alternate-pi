@@ -3,7 +3,6 @@
 #include "../../include/spectre/move_generator.h"
 #include "../../include/engine/mechanics.h"
 #include "../../include/engine/dictionary.h"
-// Removed Judge include since we don't use it here anymore
 #include <algorithm>
 #include <iostream>
 #include <cmath>
@@ -46,10 +45,9 @@ void Spy::observeOpponentMove(const Move& move, const LetterBoard& preMoveBoard)
     }
     mc.word[len] = '\0';
 
-    // FIX: Using Mechanics::calculateTrueScore
     int actualScore = Mechanics::calculateTrueScore(mc, preMoveBoard, bonusBoard);
 
-    // 3. UPDATE PARTICLES
+    // 3. UPDATE PARTICLES (The Filter)
     double totalWeight = 0.0;
 
     for (auto& p : particles) {
@@ -78,32 +76,40 @@ void Spy::observeOpponentMove(const Move& move, const LetterBoard& preMoveBoard)
         }
 
         // B. SOFT FILTER (Rationality Check)
-        // FIX: calling internal evaluateRationality instead of Judge
         double rationality = evaluateRationality(p.rack, actualScore, preMoveBoard);
-
         p.weight *= rationality;
         totalWeight += p.weight;
     }
 
-    // 4. RESAMPLE
+    // 4. RESAMPLE (Survival of the Fittest)
     if (totalWeight < 0.0001) {
-        initParticles();
+        initParticles(); // Panic Reset: Our model was wrong, reboot.
     } else {
         resampleParticles(totalWeight);
     }
+
+    // 5. TRANSITION STATE (The Memory Fix)
+    // Remove the played tiles from the surviving particles.
+    // They now represent the opponent's rack *after* the move, but *before* drawing.
+    for(auto& p : particles) {
+        for(char t : tilesPlayed) {
+            auto it = std::find(p.rack.begin(), p.rack.end(), t);
+            if(it != p.rack.end()) {
+                p.rack.erase(it);
+            } else {
+                // Must be a blank
+                auto bit = std::find(p.rack.begin(), p.rack.end(), '?');
+                if(bit != p.rack.end()) p.rack.erase(bit);
+            }
+        }
+    }
 }
 
-// FIX: Implemented the logic here instead of calling non-existent Judge function
 double Spy::evaluateRationality(const std::vector<char>& rack, int actualScore, const LetterBoard& board) {
-    // 1. Find the best score this rack *could* have gotten
     int bestPossible = findBestPossibleScore(rack, board);
-
-    // 2. Compare
-    if (actualScore > bestPossible) return 0.0; // Should be impossible if generator is correct
+    if (actualScore > bestPossible) return 0.0;
 
     int delta = bestPossible - actualScore;
-
-    // Probability Curve
     if (delta == 0) return 1.0;
     if (delta < 5)  return 0.9;
     if (delta < 15) return 0.5;
@@ -118,11 +124,7 @@ int Spy::findBestPossibleScore(const std::vector<char>& rack, const LetterBoard&
         tRack.push_back(t);
     }
 
-    // Run Generator (Fast Mode)
-    // Note: This is computationally expensive.
-    // In production, we might limit this to Top 50 particles or simplify the search.
     vector<MoveCandidate> moves = MoveGenerator::generate(board, tRack, gDictionary, false);
-
     if (moves.empty()) return 0;
 
     int maxScore = 0;
@@ -136,6 +138,7 @@ int Spy::findBestPossibleScore(const std::vector<char>& rack, const LetterBoard&
 }
 
 void Spy::updateGroundTruth(const LetterBoard& board, const TileRack& myRack, const TileBag& bag) {
+    // 1. Recalculate the Unseen Pool (Global Truth)
     unseenPool.clear();
     TileTracker tracker;
 
@@ -150,7 +153,26 @@ void Spy::updateGroundTruth(const LetterBoard& board, const TileRack& myRack, co
         for (int k=0; k<count; k++) unseenPool.push_back(c);
     }
 
-    initParticles();
+    // 2. REFILL PARTICLES (Evolution)
+    // Instead of initParticles() (which erases memory), we just top up the racks.
+    static thread_local std::mt19937 rng(std::random_device{}());
+
+    if(particles.empty()) {
+        initParticles();
+        return;
+    }
+
+    for (auto& p : particles) {
+        // Sanity Check: If rack is too big (shouldn't happen), trim
+        if (p.rack.size() > 7) p.rack.resize(7);
+
+        // Refill to 7 tiles from the new unseen pool
+        while (p.rack.size() < 7 && !unseenPool.empty()) {
+            std::uniform_int_distribution<int> dist(0, unseenPool.size() - 1);
+            int idx = dist(rng);
+            p.rack.push_back(unseenPool[idx]);
+        }
+    }
 }
 
 void Spy::initParticles() {
@@ -158,14 +180,18 @@ void Spy::initParticles() {
     for(int i=0; i<PARTICLE_COUNT; i++) {
         particles[i].rack.clear();
         particles[i].weight = 1.0;
+
+        // Safety: If pool is empty, we can't fill.
+        if (unseenPool.empty()) continue;
+
         std::vector<char> pool = unseenPool;
         std::shuffle(pool.begin(), pool.end(), rng);
+
         int draw = std::min((int)pool.size(), 7);
         for(int k=0; k<draw; k++) particles[i].rack.push_back(pool[k]);
     }
 }
 
-// FIX: Added totalWeight parameter to match header
 void Spy::resampleParticles(double totalWeight) {
     std::vector<Particle> newParticles;
     newParticles.reserve(PARTICLE_COUNT);
@@ -186,6 +212,7 @@ void Spy::resampleParticles(double totalWeight) {
         }
     }
 
+    // Normalize weights after resampling
     for(auto& p : newParticles) p.weight = 1.0;
     particles = newParticles;
 }
