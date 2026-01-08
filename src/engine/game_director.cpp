@@ -171,6 +171,12 @@ void GameDirector::executePlay(int pIdx, Move& move) {
         lastMove.score = result.score;
         lastMove.emptiedRack = state.players[pIdx].rack.empty();
 
+        // 4. NOTIFY OPPONENT (Spy Hook)
+        // We pass 'snapshot.board' so the Spy sees the board AS IT WAS
+        // when the move was made (Pre-Move State).
+        int opponentIdx = 1 - pIdx;
+        controllers[opponentIdx]->observeMove(move, snapshot.board);
+
         // OPTIMIZATION: Only build word strings if challenges are enabled
         if (config.allowChallenge) {
             lastMove.formedWords.clear();

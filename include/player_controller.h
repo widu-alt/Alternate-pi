@@ -24,4 +24,7 @@ public:
                                     const LastMoveInfo& lastMove) = 0;
 
     virtual std::string getName() const { return "Player"; }
+
+    // Hook for the Spy to see the move BEFORE it was applied (Snapshot)
+    virtual void observeMove(const Move& move, const LetterBoard& preMoveBoard) {}
 };
