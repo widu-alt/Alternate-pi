@@ -24,7 +24,8 @@ void Spy::observeOpponentMove(const Move& move, const LetterBoard& preMoveBoard)
     // 1. DEDUCE PLAYED TILES
     std::vector<char> tilesPlayed;
     int r = move.row; int c = move.col;
-    int dr = move.horizontal ? 0 : 1; int dc = move.horizontal ? 1 : 0;
+    int dr = move.horizontal ? 0 : 1;
+    int dc = move.horizontal ? 1 : 0;
 
     for (char letter : move.word) {
         if (preMoveBoard[r][c] == ' ') {
@@ -36,7 +37,9 @@ void Spy::observeOpponentMove(const Move& move, const LetterBoard& preMoveBoard)
     // 2. SCORE THE MOVE (The Truth)
     Board bonusBoard = createBoard();
     MoveCandidate mc;
-    mc.row = move.row; mc.col = move.col; mc.isHorizontal = move.horizontal;
+    mc.row = move.row;
+    mc.col = move.col;
+    mc.isHorizontal = move.horizontal;
 
     int len = 0;
     while (len < 15 && len < (int)move.word.size()) {
