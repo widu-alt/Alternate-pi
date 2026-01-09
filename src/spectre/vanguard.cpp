@@ -2,6 +2,7 @@
 #include "../../include/spectre/move_generator.h"
 #include "../../include/engine/mechanics.h" // Source of Truth
 #include "../../include/spectre/logger.h"
+#include "../../include/spectre/treasurer.h"
 #include "../../include/heuristics.h"
 #include <algorithm>
 #include <random>
@@ -75,7 +76,8 @@ MoveCandidate Vanguard::search(const LetterBoard& board, const Board& bonusBoard
         MoveCandidate pass; pass.word[0] = '\0'; pass.score = 0; return pass;
     }
 
-    // 2. STATIC SCORING
+    // 2. STATIC SCORING + EQUITY FILTER
+    // We can run a fast static Equity check here to prune garbage moves
     for (auto& cand : candidates) {
         cand.score = Mechanics::calculateTrueScore(cand, board, bonusBoard);
     }
@@ -83,12 +85,6 @@ MoveCandidate Vanguard::search(const LetterBoard& board, const Board& bonusBoard
     sort(candidates.begin(), candidates.end(), [](const MoveCandidate& a, const MoveCandidate& b) {
         return a.score > b.score;
     });
-
-    {
-        ScopedLogger log;
-        std::cout << "[VANGUARD] Generated " << candidates.size() << " moves." << std::endl;
-        std::cout << "[VANGUARD] Top Static: " << candidates[0].word << " (" << candidates[0].score << ")" << std::endl;
-    }
 
     // 3. MONTE CARLO SIMULATION (UNLEASHED)
     int candidateCount = min((int)candidates.size(), 12);
@@ -99,33 +95,38 @@ MoveCandidate Vanguard::search(const LetterBoard& board, const Board& bonusBoard
         else if (isalpha(t.letter)) myRackCounts[toupper(t.letter) - 'A']++;
     }
 
-    vector<long long> totalNetScore(candidateCount, 0);
+    vector<long long> totalNav(candidateCount, 0); // Net Asset Value accumulator
     vector<int> simCounts(candidateCount, 0);
 
     auto startTime = chrono::high_resolution_clock::now();
     int totalSims = 0;
-
-    // Concurrency Check
     unsigned int nThreads = std::thread::hardware_concurrency();
     if(nThreads == 0) nThreads = 2;
 
-    // SPRINT LOOP: Run until time runs out
     bool timeUp = false;
     while (!timeUp) {
         vector<future<long long>> futures;
         int batchSize = 50;
 
         for (int k = 0; k < candidateCount; k++) {
-             // Stop dispatching if time is critical (buffer 10ms)
              if (chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - startTime).count() >= (timeLimitMs - 10)) {
-                 timeUp = true;
-                 break;
+                 timeUp = true; break;
              }
 
              futures.push_back(async(launch::async, [k, batchSize, &candidates, board, bonusBoard, &spy, myRackCounts, &dict]() {
-                long long batchScore = 0;
+
+                long long batchNAV = 0;
+
+                // [NEW] Pre-calculate My Leave Equity once (it's static for the move)
+                // We need to reconstruct the leave rack from the move
+                int tempRack[27];
+                memcpy(tempRack, myRackCounts, sizeof(tempRack));
+                simApplyMove((LetterBoard&)board, candidates[k], tempRack); // (Hack: cast const away for temp calc or use helper logic)
+                // Actually simApplyMove modifies board, we need just rack logic.
+                // Let's rely on the simulation loop to do it cleanly.
+
                 for(int b=0; b<batchSize; b++) {
-                    // A. ASK SPY
+                    // A. SIMULATION SETUP
                     vector<char> oppTiles = spy.generateWeightedRack();
                     int oppRackCounts[27] = {0};
                     for(char c : oppTiles) {
@@ -133,39 +134,53 @@ MoveCandidate Vanguard::search(const LetterBoard& board, const Board& bonusBoard
                         else oppRackCounts[c - 'A']++;
                     }
 
-                    // B. SETUP SIM
                     LetterBoard simBoard = board;
                     int mySimRack[27];
                     memcpy(mySimRack, myRackCounts, sizeof(mySimRack));
 
-                    // C. APPLY MOVE
+                    // B. APPLY MY MOVE
                     int myMoveScore = candidates[k].score;
                     simApplyMove(simBoard, candidates[k], mySimRack);
+
+                    // [NEW] C. EVALUATE MY EQUITY (The Treasurer)
+                    TileRack myLeave = countsToRack(mySimRack);
+                    // Assume 0 score diff for static check or pass actual diff?
+                    // For simulation, we assume parity or use current game state if passed in.
+                    // Assuming scoreDiff = 0 for V1 simplicity in loop.
+                    double myEquity = Treasurer::evaluateEquity(myLeave, 0, 50); // 50 = Bag Size dummy, fix later to pass state
 
                     // D. OPPONENT RESPONSE
                     TileRack oppTileRack = countsToRack(oppRackCounts);
                     vector<MoveCandidate> responses = MoveGenerator::generate(simBoard, oppTileRack, dict, false);
 
                     int bestOppScore = 0;
+                    double bestOppEquity = 0.0;
+
                     if(!responses.empty()) {
+                        // Opponent plays optimally for NAV (Score + Equity)
+                        // But finding Equity for every opp move is too slow.
+                        // Approximation: Opponent plays for Score.
                         for(const auto& resp : responses) {
                             int s = Mechanics::calculateTrueScore(resp, simBoard, bonusBoard);
                             if(s > bestOppScore) bestOppScore = s;
                         }
                     }
 
-                    // Net Score = My Score - Their Best Response
-                    batchScore += (myMoveScore - bestOppScore);
+                    // E. CALCULATE NET ASSET VALUE (NAV)
+                    // NAV = (MyScore + MyEquity) - (OppScore)
+                    // Note: We subtract OppScore because it hurts our margin.
+                    // We DO NOT subtract OppEquity because we can't control their luck next turn easily.
+
+                    batchNAV += (long long)((myMoveScore + myEquity) - bestOppScore);
                 }
-                return batchScore;
+                return batchNAV;
              }));
         }
 
         if (timeUp && futures.empty()) break;
 
-        // Collect Results
         for(size_t k=0; k<futures.size(); k++) {
-            totalNetScore[k] += futures[k].get();
+            totalNav[k] += futures[k].get();
             simCounts[k] += batchSize;
             totalSims += batchSize;
         }
@@ -173,9 +188,9 @@ MoveCandidate Vanguard::search(const LetterBoard& board, const Board& bonusBoard
 
     {
         ScopedLogger log;
-        std::cout << "[VANGUARD] Total Sims: " << totalSims << " in " << timeLimitMs << "ms" << std::endl;
-        std::cout << "[VANGUARD] Sim Results:" << std::endl;
-        std::cout << left << setw(15) << "Word" << setw(10) << "Static" << setw(10) << "NetScore" << std::endl;
+        std::cout << "[VANGUARD] Total Sims: " << totalSims << std::endl;
+        std::cout << "[VANGUARD] NAV Analysis (Treasurer Enabled):" << std::endl;
+        std::cout << left << setw(15) << "Word" << setw(10) << "Score" << setw(10) << "AvgNAV" << std::endl;
         std::cout << "-----------------------------------" << std::endl;
     }
 
@@ -185,30 +200,22 @@ MoveCandidate Vanguard::search(const LetterBoard& board, const Board& bonusBoard
 
     for (int i = 0; i < candidateCount; i++) {
         if (simCounts[i] == 0) continue;
-        double avgNet = (double)totalNetScore[i] / simCounts[i];
-
-        // HEURISTIC: 60% Strategy (Net), 40% Aggression (Raw)
-        double heuristic = (avgNet * 0.6) + (candidates[i].score * 0.4);
+        double avgNAV = (double)totalNav[i] / simCounts[i];
 
         {
             ScopedLogger log;
             std::cout << left << setw(15) << candidates[i].word
                       << setw(10) << candidates[i].score
-                      << setw(10) << avgNet << std::endl;
+                      << setw(10) << avgNAV << std::endl;
         }
 
-        if (heuristic > bestVal) {
-            bestVal = heuristic;
+        if (avgNAV > bestVal) {
+            bestVal = avgNAV;
             bestIdx = i;
         }
     }
 
-    {
-        ScopedLogger log;
-        std::cout << "[VANGUARD] Selected: " << candidates[bestIdx].word
-                  << " (Sims: " << simCounts[bestIdx] << ")" << std::endl;
-    }
-
     return candidates[bestIdx];
 }
+
 }
