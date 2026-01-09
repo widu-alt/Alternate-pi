@@ -140,14 +140,12 @@ int Spy::findBestPossibleScore(const std::vector<char>& rack, const LetterBoard&
     return maxScore;
 }
 
-void Spy::updateGroundTruth(const LetterBoard& board, const TileRack& myRack, const TileBag& bag) {
-    // 1. Recalculate the Unseen Pool (Global Truth)
+    void Spy::updateGroundTruth(const LetterBoard& board, const TileRack& myRack, const TileBag& bag) {
+    // 1. Rebuild Unseen Pool
     unseenPool.clear();
     TileTracker tracker;
-
     for(int r=0; r<15; r++) for(int c=0; c<15; c++)
         if(board[r][c] != ' ') tracker.markSeen(board[r][c]);
-
     for(const auto& t : myRack) tracker.markSeen(t.letter);
 
     string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ?";
@@ -156,24 +154,33 @@ void Spy::updateGroundTruth(const LetterBoard& board, const TileRack& myRack, co
         for (int k=0; k<count; k++) unseenPool.push_back(c);
     }
 
-    // 2. REFILL PARTICLES (Evolution)
-    // Instead of initParticles() (which erases memory), we just top up the racks.
+    // 2. REFILL PARTICLES
     static thread_local std::mt19937 rng(std::random_device{}());
 
-    if(particles.empty()) {
-        initParticles();
-        return;
-    }
+    if(particles.empty()) { initParticles(); return; }
 
     for (auto& p : particles) {
-        // Sanity Check: If rack is too big (shouldn't happen), trim
+        // Sanity check size
         if (p.rack.size() > 7) p.rack.resize(7);
 
-        // Refill to 7 tiles from the new unseen pool
-        while (p.rack.size() < 7 && !unseenPool.empty()) {
-            std::uniform_int_distribution<int> dist(0, unseenPool.size() - 1);
-            int idx = dist(rng);
-            p.rack.push_back(unseenPool[idx]);
+        // CREATE A LOCAL COPY of available tiles for this specific particle refill
+        // This is expensive but necessary for correctness.
+        // Optimization: Only copy if we actually need to draw.
+        if (p.rack.size() < 7 && !unseenPool.empty()) {
+            std::vector<char> localPool = unseenPool;
+            // Remove tiles that are ALREADY in this particle's rack
+            // (Because unseenPool includes the opponent's current tiles)
+            for(char existing : p.rack) {
+                auto it = std::find(localPool.begin(), localPool.end(), existing);
+                if(it != localPool.end()) localPool.erase(it);
+            }
+
+            // Now draw from the remaining valid pool
+            std::shuffle(localPool.begin(), localPool.end(), rng);
+            while(p.rack.size() < 7 && !localPool.empty()) {
+                p.rack.push_back(localPool.back());
+                localPool.pop_back();
+            }
         }
     }
 }
