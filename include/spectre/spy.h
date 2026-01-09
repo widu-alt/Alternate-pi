@@ -4,6 +4,7 @@
 #include "../../include/move.h"
 #include "../../include/engine/rack.h"
 #include "../engine/tiles.h"
+#include "profiler.h"
 #include <vector>
 #include <random>
 
@@ -18,7 +19,7 @@ namespace spectre {
     public:
         Spy();
 
-        void observeOpponentMove(const Move& move, const LetterBoard& board);
+        void observeOpponentMove(const Move& move, const LetterBoard& preMoveBoard, OpponentType oppType);
         void updateGroundTruth(const LetterBoard& board, const TileRack& myRack, const TileBag& bag);
         std::vector<char> generateWeightedRack() const;
 

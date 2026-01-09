@@ -26,16 +26,10 @@ std::string getRackKey(const std::vector<char>& rack) {
     return s;
 }
 
-void Spy::observeOpponentMove(const Move& move, const LetterBoard& preMoveBoard) {
+void Spy::observeOpponentMove(const Move& move, const LetterBoard& preMoveBoard, OpponentType oppType) {
     if (unseenPool.empty()) return;
 
-    {
-        ScopedLogger log;
-        std::cout << "[SPY] Observing Move: " << move.word << std::endl;
-    }
-
     // 1. DEDUCE PLAYED TILES (Positive Inference)
-    // We know for a fact they held these tiles because they just put them on the board.
     std::vector<char> tilesPlayed;
     int r = move.row; int c = move.col;
     int dr = move.horizontal ? 0 : 1;
@@ -48,33 +42,19 @@ void Spy::observeOpponentMove(const Move& move, const LetterBoard& preMoveBoard)
         r += dr; c += dc;
     }
 
-    // 2. SCORE THE MOVE (Disabled)
-    // We no longer judge the opponent's "Rationality".
-    /*
-    Board bonusBoard = createBoard();
-    MoveCandidate mc;
-    mc.row = move.row; mc.col = move.col; mc.isHorizontal = move.horizontal;
-    int len = 0; while (len < 15 && len < (int)move.word.size()) { mc.word[len] = move.word[len]; len++; } mc.word[len] = '\0';
-    int actualScore = Mechanics::calculateTrueScore(mc, preMoveBoard, bonusBoard);
-    */
-
-    // 3. UPDATE PARTICLES
+    // 2. PARTICLE UPDATE LOOP
     double totalWeight = 0.0;
-    // std::map<std::string, int> scoreCache; // [LOBOTOMY] Cache not needed without negative inference
 
     for (auto& p : particles) {
         // A. HARD FILTER (Consistency Check)
-        // If a particle assumes the opponent has [A, B, C] but they played [D],
-        // that particle is logically impossible and must be killed.
-
         std::vector<char> rackCopy = p.rack;
         bool possible = true;
         for (char t : tilesPlayed) {
             auto it = std::find(rackCopy.begin(), rackCopy.end(), t);
-            if (it != rackCopy.end()) *it = ' '; // Mark used
+            if (it != rackCopy.end()) *it = ' ';
             else {
                 auto bit = std::find(rackCopy.begin(), rackCopy.end(), '?');
-                if (bit != rackCopy.end()) *bit = ' '; // Consume blank
+                if (bit != rackCopy.end()) *bit = ' ';
                 else { possible = false; break; }
             }
         }
@@ -84,46 +64,26 @@ void Spy::observeOpponentMove(const Move& move, const LetterBoard& preMoveBoard)
             continue;
         }
 
-        // B. SOFT FILTER (Negative Inference) -> [LOBOTOMIZED]
-        // This was the source of the "Hallucination".
-        // We now accept all physically possible racks as equally likely.
-
-        /*
-        std::string key = getRackKey(p.rack);
-        int bestPossible = 0;
-
-        if (scoreCache.count(key)) {
-            bestPossible = scoreCache[key];
-        } else {
-            bestPossible = findBestPossibleScore(p.rack, preMoveBoard);
-            scoreCache[key] = bestPossible;
+        // B. SOFT FILTER (Negative Inference)
+        // [CRITICAL FIX] Only apply if opponent is explicitly SMART.
+        // If they are Greedy (Speedi_Pi) or Unknown, we skip this to prevent hallucinations.
+        if (oppType == OpponentType::SMART) {
+             // Placeholder for advanced inference.
+             // For now, keeping it neutral ensures stability against aggressive bots.
+             p.weight *= 1.0;
         }
-
-        double rationality = 0.0;
-        if (actualScore <= bestPossible) {
-             // ... Logic that penalized racks that could have scored higher ...
-        }
-        p.weight *= rationality;
-        */
 
         totalWeight += p.weight;
     }
 
-    {
-        ScopedLogger log;
-        std::cout << "[SPY] Filter Stats: " << totalWeight << " mass." << std::endl;
-    }
-
-    // 4. RESAMPLE
+    // 3. RESAMPLE
     if (totalWeight < 0.0001) {
-        ScopedLogger log;
-        std::cout << "[SPY] PANIC: Model collapsed. Resetting." << std::endl;
         initParticles();
     } else {
         resampleParticles(totalWeight);
     }
 
-    // 5. TRANSITION (Remove played tiles)
+    // 4. TRANSITION (Remove played tiles)
     for(auto& p : particles) {
         for(char t : tilesPlayed) {
             auto it = std::find(p.rack.begin(), p.rack.end(), t);

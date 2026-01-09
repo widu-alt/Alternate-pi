@@ -32,11 +32,14 @@ string AIPlayer::getName() const {
 // --- NEW: WIRE THE BRAIN ---
 void AIPlayer::observeMove(const Move& move, const LetterBoard& board) {
     if (style == AIStyle::CUTIE_PI) {
-        spy.observeOpponentMove(move, board);
-        profiler.observe(move, board); // Feed the General
+        // [FIX] Update Profiler FIRST to get the latest analysis
+        profiler.observe(move, board);
+
+        // [FIX] Pass the verdict to the Spy
+        spectre::OpponentType oppType = profiler.getType();
+        spy.observeOpponentMove(move, board, oppType);
     }
 }
-
 // --- HELPERS (Keep these for Speedi_Pi and general logic) ---
 
 // Optimization: Prune the search space

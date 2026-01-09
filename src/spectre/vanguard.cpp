@@ -71,31 +71,33 @@ MoveCandidate Vanguard::search(const LetterBoard& board,
     bestMove.word[0] = '\0';
 
     // 2. SCORING LOOP
+    // 2. SCORING LOOP
     for (auto& cand : candidates) {
 
-        // A. Base Score (Points + Equity)
+        // A. Base Score (Points)
         int logicScore = Mechanics::calculateTrueScore(cand, board, bonusBoard);
 
-        // B. STRATEGIC ADJUSTMENT (The General's Orders)
-        int penalty = 0;
+        // B. RACK EQUITY (New Injection)
+        // This gives Cutie_Pi the same rack awareness as Speedi_Pi
+        float leaveVal = 0.0f;
+        for(char c : cand.leave) {
+            if(c == '\0') break;
+            leaveVal += Heuristics::getLeaveValue(c);
+        }
 
+        // C. STRATEGIC ADJUSTMENT (Tower Defense)
+        int penalty = 0;
         if (oppType == OpponentType::GREEDY) {
-            // TOWER DEFENSE:
-            // If the opponent is Greedy, they WILL take the Triple Word Score if we offer it.
-            // So we heavily penalize moves that open it.
             if (leavesTWSOpen(cand, board)) {
-                penalty = 25; // Massive penalty (equivalent to a whole turn)
-                // logicScore -= penalty;
+                penalty = 25;
             }
         }
         else if (oppType == OpponentType::SMART) {
-            // Vs Smart Opponent:
-            // Maybe less penalty because they might fear our retaliation?
-            // For now, standard play.
             penalty = 0;
         }
 
-        cand.score = logicScore - penalty;
+        // Final Score = Points + Rack Leave - Danger Penalty
+        cand.score = logicScore + (int)leaveVal - penalty;
 
         if (cand.score > bestMove.score) {
             bestMove = cand;
