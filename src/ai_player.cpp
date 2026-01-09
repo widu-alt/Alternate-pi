@@ -15,6 +15,7 @@
 #include <future>
 #include <thread>
 #include <vector>
+#include <map>
 
 using namespace spectre;
 using namespace std;
@@ -45,30 +46,29 @@ struct SearchRange {
     bool isEmpty;
 };
 
-AIPlayer::DifferentialMove AIPlayer::calculateDifferential(const LetterBoard &letters, const spectre::MoveCandidate &bestMove) {
-    DifferentialMove diff;
-    diff.row = -1;
-    diff.col = -1;
-    diff.word = "";
+Move calculateDifferential(const Board& board, const spectre::MoveCandidate& cand) {
+    Move m;
+    m.type = MoveType::PLAY;
+    m.row = cand.row;
+    m.col = cand.col;
+    m.horizontal = cand.isHorizontal;
+    m.score = cand.score;
 
-    int r = bestMove.row;
-    int c = bestMove.col;
-    int dr = bestMove.isHorizontal ? 0 : 1;
-    int dc = bestMove.isHorizontal ? 1 : 0;
+    int r = cand.row;
+    int c = cand.col;
+    int dr = cand.isHorizontal ? 0 : 1;
+    int dc = cand.isHorizontal ? 1 : 0;
 
-    for (char letter : bestMove.word) {
-        if (letter == '\0') break;
-        if (letters[r][c] == ' ') {
-            if (diff.row == -1 && diff.col == -1) {
-                diff.row = r;
-                diff.col = c;
+    for (int i = 0; cand.word[i] != '\0'; ++i) {
+        if (board.boundsCheck(r, c)) {
+            if (!board.hasTile(r, c)) {
+                m.word += cand.word[i];
             }
-            diff.word += letter;
         }
         r += dr;
         c += dc;
     }
-    return diff;
+    return m;
 }
 
 bool AIPlayer::isRackBad(const TileRack& rack) {
@@ -88,147 +88,131 @@ string AIPlayer::getTilesToExchange(const TileRack& rack) {
     return s.empty() ? "A" : s;
 }
 
-Move AIPlayer::getMove(const GameState& state,
-                       const Board& bonusBoard,
-                       const LastMoveInfo& lastMove,
-                       bool canChallenge)
-{
+Move AIPlayer::getMove(const GameState& state, const Board& bonusBoard, const LastMoveInfo& lastMove, bool isFirstTurn) {
+
     // ---------------------------------------------------------
-    // 1. THE VALIDATION CHECK (Runs for BOTH Bots)
+    // BRAIN 1: SPEEDI_PI (Greedy) - Logic for P1 if applicable
     // ---------------------------------------------------------
-    // Note: canChallenge is ONLY true in PvE (Human vs Bot).
-    // It is FALSE in AiAi (Bot vs Bot), ensuring bots never challenge each other.
-    if (canChallenge && lastMove.exists) {
-        bool foundInvalid = false;
-        string invalidWord = "";
+    if (state.currentPlayerIndex == 0) {
+        spectre::MoveCandidate cand = spectre::Vanguard::search(
+             (const spectre::LetterBoard&)state.board,
+             bonusBoard,
+             state.players[0].rack,
+             spy,
+             gDictionary,
+             3000,
+             (int)state.bag.size(),
+             0
+        );
 
-        for (const auto& word : lastMove.formedWords) {
-            if (!gDictionary.isValidWord(word)) {
-                foundInvalid = true;
-                invalidWord = word;
-                break;
-            }
-        }
-
-        if (foundInvalid) {
-            cout << getName() << "\nDETECTED INVALID WORD: " << invalidWord << endl;
-
-            // THE RULE OF COOL
-            challengePhrase();
-            std::this_thread::sleep_for(std::chrono::seconds(3));
-
-            return Move(MoveType::CHALLENGE);
-        }
+        if (cand.word[0] != '\0') return calculateDifferential(state.board, cand);
+        return Move(MoveType::PASS);
     }
 
-    candidates.clear();
-
-    spectre::MoveCandidate bestMove;
-    bestMove.word[0] = '\0';
-    bestMove.score = -10000;
-
-    // ---------------------------------------------------------
-    // BRAIN 1: SPEEDI_PI (Static Heuristics Only)
-    // ---------------------------------------------------------
-    if (style == AIStyle::SPEEDI_PI) {
-        // Direct call to MoveGenerator (No Vanguard class overhead)
-        findAllMoves(state.board, state.players[state.currentPlayerIndex].rack);
-
-        if (!candidates.empty()) {
-            for (auto& cand : candidates) {
-                int boardScore = Mechanics::calculateTrueScore(cand, state.board, bonusBoard);
-                float leavePenalty = 0.0f;
-                for (int i = 0; cand.leave[i] != '\0'; i++) {
-                    leavePenalty += Heuristics::getLeaveValue(cand.leave[i]);
-                }
-                cand.score = boardScore + (int)leavePenalty;
-            }
-            // Sort by score
-            std::sort(candidates.begin(), candidates.end(),
-                [](const MoveCandidate& a, const MoveCandidate& b) { return a.score > b.score; });
-            bestMove = candidates[0];
-        }
-    }
     // ---------------------------------------------------------
     // BRAIN 2: CUTIE_PI (Spectre Engine)
     // ---------------------------------------------------------
-    else {
-        const Player& me = state.players[state.currentPlayerIndex];
-        const Player& opp = state.players[1 - state.currentPlayerIndex];
 
-        // Update Spy
-        spy.updateGroundTruth(state.board, me.rack, state.bag);
-
-        // DECISION FORK: ENDGAME vs MIDGAME
-        if (state.bag.empty()) {
-            // >>> THE JUDGE (Endgame Solver) <<<
-
-            // 1. Infer Opponent Rack (Define it HERE so it exists for the Judge)
-            std::vector<char> inferredOpp = spy.generateWeightedRack();
-            TileRack oppRack;
-            for(char c : inferredOpp) {
-                Tile t; t.letter=c; t.points=0;
-                oppRack.push_back(t);
-            }
-
-            // 2. Get Raw Move from Judge
-            Move jMove = Judge::solveEndgame(state.board, bonusBoard, me.rack, oppRack, gDictionary);
-
-            // 3. Convert to MoveCandidate for the Differential Calculator below
-            // (We hijack 'bestMove' to pass data to the existing execution logic)
-            bestMove.row = jMove.row;
-            bestMove.col = jMove.col;
-            bestMove.isHorizontal = jMove.horizontal;
-
-            // Safe string copy
-            size_t len = jMove.word.length();
-            for(size_t i=0; i<len && i<15; i++) bestMove.word[i] = jMove.word[i];
-            bestMove.word[len] = '\0';
-
-            bestMove.score = 1000; // Force execution
-        }
-        else {
-            // >>> THE VANGUARD (Midgame Strategy) <<<
-            int scoreDiff = me.score - opp.score;
-            int bagSize = state.bag.size();
-
-            bestMove = Vanguard::search(
-                state.board,
-                bonusBoard,
-                me.rack,
-                spy,
-                gDictionary,
-                3000,
-                bagSize,
-                scoreDiff
-            );
-        }
-    }
-
-    // ---------------------------------------------------------
-    // EXECUTION & TRANSLATION
-    // ---------------------------------------------------------
     const Player& me = state.players[state.currentPlayerIndex];
-    bool shouldExchange = (bestMove.word[0] == '\0') ||
-                          (bestMove.score < 14 && isRackBad(me.rack) && state.bag.size() >= 7);
+    const Player& opp = state.players[1 - state.currentPlayerIndex];
 
-    if (shouldExchange) {
-        if (state.bag.size() < 7) return Move(MoveType::PASS);
-        Move ex; ex.type = MoveType::EXCHANGE;
-        ex.exchangeLetters = getTilesToExchange(me.rack);
-        return ex;
+    // 1. Context & Spy Updates
+    int scoreDiff = me.score - opp.score;
+    int bagSize = state.bag.size();
+
+    spy.observeOpponentMove(lastMove, (const spectre::LetterBoard&)state.board);
+    spy.updateGroundTruth((const spectre::LetterBoard&)state.board, me.rack, state.bag);
+
+    spectre::MoveCandidate bestCand;
+
+    // 2. Select Brain (Endgame vs Midgame)
+    if (state.bag.empty()) {
+        // >>> THE JUDGE <<<
+        std::vector<char> inferredOpp = spy.generateWeightedRack();
+        spectre::TileRack oppRack;
+        for(char c : inferredOpp) { spectre::Tile t; t.letter=c; t.points=0; oppRack.push_back(t); }
+
+        // Judge returns a global 'Move' object, we convert to Candidate for consistent handling below
+        spectre::Move jMove = spectre::Judge::solveEndgame(
+            (const spectre::LetterBoard&)state.board,
+            bonusBoard,
+            me.rack,
+            oppRack,
+            gDictionary
+        );
+
+        bestCand.row = jMove.row;
+        bestCand.col = jMove.col;
+        bestCand.isHorizontal = jMove.horizontal;
+        bestCand.score = 1000;
+
+        size_t len = jMove.word.length();
+        for(size_t i=0; i<len && i<15; i++) bestCand.word[i] = jMove.word[i];
+        bestCand.word[len] = '\0';
+    }
+    else {
+        // >>> VANGUARD <<<
+        bestCand = spectre::Vanguard::search(
+            (const spectre::LetterBoard&)state.board,
+            bonusBoard,
+            me.rack,
+            spy,
+            gDictionary,
+            3000,
+            bagSize,
+            scoreDiff
+        );
     }
 
-    DifferentialMove diff = calculateDifferential(state.board, bestMove);
-    if (diff.row == -1) return Move(MoveType::PASS);
+    // ---------------------------------------------------------
+    // SAFETY VALVE: EXCHANGE LOGIC
+    // ---------------------------------------------------------
+    // If Vanguard returns a PASS (empty word) in Midgame, we MUST Exchange.
 
-    Move result;
-    result.type = MoveType::PLAY;
-    result.row = diff.row;
-    result.col = diff.col;
-    result.word = diff.word;
-    result.horizontal = bestMove.isHorizontal;
-    return result;
+    if (bestCand.word[0] == '\0' && state.bag.size() >= 7) {
+        std::string toxic = "QJZXV";
+        std::string toExchange = "";
+        std::map<char, int> counts;
+
+        // A. Mark Toxic Tiles
+        for (const auto& tile : me.rack) {
+            counts[tile.letter]++;
+            if (toxic.find(tile.letter) != std::string::npos) {
+                toExchange += tile.letter;
+            }
+        }
+
+        // B. Mark Duplicates
+        if (toExchange.empty()) {
+            for (const auto& tile : me.rack) {
+                if (counts[tile.letter] > 2) {
+                    toExchange += tile.letter;
+                    counts[tile.letter]--;
+                }
+            }
+        }
+
+        // C. Forced Cycle (Dump 1 tile)
+        if (toExchange.empty() && !me.rack.empty()) {
+             toExchange += me.rack[0].letter;
+        }
+
+        if (!toExchange.empty()) {
+            Move exchangeMove;
+            exchangeMove.type = MoveType::EXCHANGE;
+            exchangeMove.word = toExchange;
+            return exchangeMove;
+        }
+    }
+
+    // ---------------------------------------------------------
+    // EXECUTE PLAY
+    // ---------------------------------------------------------
+    if (bestCand.word[0] != '\0') {
+        return calculateDifferential(state.board, bestCand);
+    }
+
+    return Move(MoveType::PASS);
 }
 
 Move AIPlayer::getEndGameResponse(const GameState& state, const LastMoveInfo& lastMove) {

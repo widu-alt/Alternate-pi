@@ -194,10 +194,17 @@ int Spy::findBestPossibleScore(const std::vector<char>& rack, const LetterBoard&
 
             // Now draw from the remaining valid pool
             std::shuffle(localPool.begin(), localPool.end(), rng);
+
+            // [FIX] Robust Refill Loop
+            // Ensure we don't draw if pool is empty OR rack is full
             while(p.rack.size() < 7 && !localPool.empty()) {
                 p.rack.push_back(localPool.back());
                 localPool.pop_back();
             }
+
+            // Sanity Clip
+            // If for some reason we have >7 (should be impossible, but safety first)
+            if (p.rack.size() > 7) p.rack.resize(7);
         }
     }
 }

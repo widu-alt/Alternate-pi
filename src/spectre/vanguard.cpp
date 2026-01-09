@@ -182,6 +182,13 @@ TileRack countsToRack(const int* counts) {
 
         if (timeUp && futures.empty()) break;
 
+        // [ROOT FIX] Thread Throttle
+        // If simulations finish instantly (low branching factor), yield CPU.
+        // This ensures the main thread can actually check the clock.
+        if (futures.size() < candidateCount && totalSims > 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+
         for(size_t k=0; k<futures.size(); k++) {
             totalNav[k] += futures[k].get();
             simCounts[k] += batchSize;
