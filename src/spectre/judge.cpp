@@ -15,17 +15,42 @@ namespace spectre {
 // --- INTERNAL LIGHTWEIGHT HELPERS ---
 
 // Convert move to standard format for return
-static Move candidateToMove(const MoveCandidate& cand) {
+static Move candidateToMove(const MoveCandidate& cand, const LetterBoard& board) {
     Move m;
     m.type = MoveType::PLAY;
-    m.row = cand.row;
-    m.col = cand.col;
     m.horizontal = cand.isHorizontal;
-    int i=0;
+
+    // Track position as we iterate through the candidate word
+    int r = cand.row;
+    int c = cand.col;
+    int dr = cand.isHorizontal ? 0 : 1;
+    int dc = cand.isHorizontal ? 1 : 0;
+
+    bool anchorFound = false;
+
+    int i = 0;
     while(i < 15 && cand.word[i] != '\0') {
-        m.word += cand.word[i];
+        // Check the board at the current position
+        if (board[r][c] == ' ') {
+            // Found an empty square! This is a tile we are placing.
+
+            // 1. If this is the first new tile, set it as the Move's start coordinate.
+            if (!anchorFound) {
+                m.row = r;
+                m.col = c;
+                anchorFound = true;
+            }
+
+            // 2. Add the letter to the filtered string (Referee expects only new tiles)
+            m.word += cand.word[i];
+        }
+
+        // Advance board position to check next square
+        r += dr;
+        c += dc;
         i++;
     }
+
     return m;
 }
 
@@ -120,7 +145,7 @@ Move Judge::solveEndgame(const LetterBoard& board, const Board& bonusBoard,
             }
 
             // Return immediately - going out on turn 1 of endgame is almost always optimal
-            return candidateToMove(move);
+            return candidateToMove(bestMove, board);
         }
 
         // Recurse (Opponent's Turn)
@@ -143,7 +168,7 @@ Move Judge::solveEndgame(const LetterBoard& board, const Board& bonusBoard,
         std::cout << "[JUDGE] Solution: " << bestMove.word << " (Val: " << bestVal << ")" << std::endl;
     }
 
-    return candidateToMove(bestMove);
+    return candidateToMove(bestMove, board);
 }
 
 // --- MINIMAX RECURSION ---
@@ -158,10 +183,11 @@ int Judge::minimax(LetterBoard board, const Board& bonusBoard,
                    const steady_clock::time_point& startTime,
                    int timeBudgetMs) {
 
-    // 1. Time Limit Check (every 4th depth to save calls)
-    if ((depth & 3) == 0 && duration_cast<milliseconds>(steady_clock::now() - startTime).count() > timeBudgetMs) {
-        // Heuristic: Current Score differential (simple fallback)
-        return 0;
+    // FIX: Check time EVERY node, or at least every node if depth < 4.
+    // The previous (depth & 3) == 0 optimization caused the bot to get stuck
+    // processing massive branching factors at depth 1-3 without checking the clock.
+    if (duration_cast<milliseconds>(steady_clock::now() - startTime).count() > timeBudgetMs) {
+        return 0; // Timeout fallback
     }
 
     // 2. Generate Moves
