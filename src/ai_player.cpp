@@ -32,15 +32,8 @@ string AIPlayer::getName() const {
 // --- NEW: WIRE THE BRAIN ---
 void AIPlayer::observeMove(const Move& move, const LetterBoard& board) {
     if (style == AIStyle::CUTIE_PI) {
-        // 1. Spy Update
         spy.observeOpponentMove(move, board);
-
-        // 2. Profiler Update [NEW]
-        // We need the Previous State. Since 'board' passed here is the PRE-MOVE board,
-        // we can use it.
-        // We pass a dummy state for now, or just the board.
-        // For Phase 2 simplicity, we just trigger the counter.
-        profiler.observe(gameStatePlaceholder, move, gDictionary);
+        profiler.observe(move, board); // Feed the General
     }
 }
 
@@ -184,6 +177,8 @@ Move AIPlayer::getMove(const GameState& state,
             int scoreDiff = me.score - opp.score;
             int bagSize = state.bag.size();
 
+            spectre::OpponentType oppType = profiler.getType();
+
             bestMove = Vanguard::search(
                 state.board,
                 bonusBoard,
@@ -193,7 +188,7 @@ Move AIPlayer::getMove(const GameState& state,
                 3000,
                 bagSize,
                 scoreDiff,
-                oppType
+                oppType //Pass intel to Vanguard
             );
         }
     }

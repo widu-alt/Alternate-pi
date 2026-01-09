@@ -1,23 +1,31 @@
 #pragma once
 
 #include <vector>
+#include <string>
+
 #include "move_generator.h"
-#include "spy.h" // Include the Spy definition
-#include "../engine/dictionary.h"
+#include "../move.h"
+#include "../../include/engine/board.h"
+#include "../../include/engine/dictionary.h"
+#include "../../include/engine/rack.h"
+#include "../../include/engine/types.h"
+#include "spy.h"
+#include "profiler.h"
 
 namespace spectre {
 
     class Vanguard {
     public:
         // Update: Now accepts 'const Spy&' instead of 'unseenBag'
-        static MoveCandidate search(const LetterBoard& board,
-                                    const Board& bonusBoard,
-                                    const TileRack& rack,
-                                    const Spy& spy,
-                                    Dictionary& dict,
+        static MoveCandidate search(const LetterBoard &board,
+                                    const Board &bonusBoard,
+                                    const TileRack &rack,
+                                    Spy &spy,
+                                    Dictionary &dict,
                                     int timeLimitMs,
                                     int bagSize,
-                                    int scoreDiff);
+                                    int scoreDiff,
+                                    OpponentType oppType);
 
     private:
         // Helper to play out a simulation
