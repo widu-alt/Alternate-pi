@@ -153,7 +153,6 @@ Move AIPlayer::getMove(const GameState& state,
     // BRAIN 2: CUTIE_PI (Spectre Engine)
     // ---------------------------------------------------------
     else {
-        // CUTIE_PI LOGIC
         const Player& me = state.players[state.currentPlayerIndex];
         const Player& opp = state.players[1 - state.currentPlayerIndex];
 
@@ -162,25 +161,31 @@ Move AIPlayer::getMove(const GameState& state,
 
         // DECISION FORK: ENDGAME vs MIDGAME
         if (state.bag.empty()) {
-            // 1. Get the Raw Move from Judge
+            // >>> THE JUDGE (Endgame Solver) <<<
+
+            // 1. Infer Opponent Rack (Define it HERE so it exists for the Judge)
+            std::vector<char> inferredOpp = spy.generateWeightedRack();
+            TileRack oppRack;
+            for(char c : inferredOpp) {
+                Tile t; t.letter=c; t.points=0;
+                oppRack.push_back(t);
+            }
+
+            // 2. Get Raw Move from Judge
             Move jMove = Judge::solveEndgame(state.board, bonusBoard, me.rack, oppRack, gDictionary);
 
-            // 2. CONVERT TO DIFFERENTIAL (The Missing Link)
-            // We need to reconstruct a 'MoveCandidate' to use the helper,
-            // or just manually call calculateDifferential with the data we have.
+            // 3. Convert to MoveCandidate for the Differential Calculator below
+            // (We hijack 'bestMove' to pass data to the existing execution logic)
+            bestMove.row = jMove.row;
+            bestMove.col = jMove.col;
+            bestMove.isHorizontal = jMove.horizontal;
 
-            spectre::MoveCandidate endCand;
-            endCand.row = jMove.row;
-            endCand.col = jMove.col;
-            endCand.isHorizontal = jMove.horizontal;
-            // Copy string safely
+            // Safe string copy
             size_t len = jMove.word.length();
-            for(size_t i=0; i<len && i<15; i++) endCand.word[i] = jMove.word[i];
-            endCand.word[len] = '\0';
+            for(size_t i=0; i<len && i<15; i++) bestMove.word[i] = jMove.word[i];
+            bestMove.word[len] = '\0';
 
-            // 3. Assign to bestMove so it falls through to the Execution block below
-            bestMove = endCand;
-            bestMove.score = 1000; // Force play
+            bestMove.score = 1000; // Force execution
         }
         else {
             // >>> THE VANGUARD (Midgame Strategy) <<<

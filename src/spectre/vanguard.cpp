@@ -117,71 +117,64 @@ TileRack countsToRack(const int* counts) {
 
              // CAPTURE 'board' BY VALUE (Creates a clean copy per thread)
              futures.push_back(async(launch::async, [k, batchSize, candidates, board, bonusBoard, &spy, myRackCounts, &dict, bagSize, scoreDiff]() {
-
                 long long batchNAV = 0;
 
-                // STEP A: Calculate My Equity ONCE (Static for this move)
-                // Use a temporary rack to calculate the leave, DO NOT touch the board yet.
+                // 1. Calculate MY Equity (Static for this move)
                 int myLeaveCounts[27];
                 memcpy(myLeaveCounts, myRackCounts, sizeof(myLeaveCounts));
 
-                // Manual removal (Logic extracted from simApplyMove to avoid board dependency)
-                const auto& move = candidates[k];
+                const auto& move = candidates[k]; // <--- Capture reference for convenience
+
                 for (int i=0; move.word[i] != '\0'; i++) {
-                    // Check if tile was placed (we need board to know if it was empty)
-                    int r = move.row + (move.isHorizontal ? 0 : i);
-                    int c = move.col + (move.isHorizontal ? i : 0);
-                    // Only remove if we placed it (board was empty)
+                    int r = move.row + (move.isHorizontal?0:i);
+                    int c = move.col + (move.isHorizontal?i:0);
                     if (board[r][c] == ' ') {
                         char letter = move.word[i];
-                        if (letter >= 'a' && letter <= 'z') { // Blank
-                            if (myLeaveCounts[26] > 0) myLeaveCounts[26]--;
-                        } else {
-                            int idx = letter - 'A';
-                            if (myLeaveCounts[idx] > 0) myLeaveCounts[idx]--;
-                            else if (myLeaveCounts[26] > 0) myLeaveCounts[26]--;
+                        if (letter >= 'a' && letter <= 'z') { if (myLeaveCounts[26]>0) myLeaveCounts[26]--; }
+                        else {
+                            int idx = letter-'A';
+                            if (myLeaveCounts[idx]>0) myLeaveCounts[idx]--;
+                            else if (myLeaveCounts[26]>0) myLeaveCounts[26]--;
                         }
                     }
                 }
-
                 TileRack myLeave = countsToRack(myLeaveCounts);
                 double myEquity = Treasurer::evaluateEquity(myLeave, scoreDiff, bagSize);
 
-                // STEP B: Run Simulations
+                // 2. Run Simulations
                 for(int b=0; b<batchSize; b++) {
-                    // 1. Setup World
+                    // Simulation Setup
                     vector<char> oppTiles = spy.generateWeightedRack();
                     int oppRackCounts[27] = {0};
-                    for(char c : oppTiles) {
-                        if (c == '?') oppRackCounts[26]++;
-                        else oppRackCounts[c - 'A']++;
-                    }
+                    for(char c : oppTiles) { if (c == '?') oppRackCounts[26]++; else oppRackCounts[c - 'A']++; }
 
-                    // 2. Apply My Move (On a fresh board copy)
                     LetterBoard simBoard = board;
-                    int mySimRack[27]; // Dummy, we already calculated equity
+                    int mySimRack[27];
                     memcpy(mySimRack, myRackCounts, sizeof(mySimRack));
                     simApplyMove(simBoard, candidates[k], mySimRack);
 
-                    // 3. Opponent Response
                     TileRack oppTileRack = countsToRack(oppRackCounts);
                     vector<MoveCandidate> responses = MoveGenerator::generate(simBoard, oppTileRack, dict, false);
 
                     double bestOppTotal = 0.0;
-if(!responses.empty()) {
-    for(const auto& resp : responses) {
-        int s = Mechanics::calculateTrueScore(resp, simBoard, bonusBoard);
+                    if(!responses.empty()) {
+                        for(const auto& resp : responses) {
+                            int s = Mechanics::calculateTrueScore(resp, simBoard, bonusBoard);
 
-        // Quick Equity Estimate for Opponent
-        // If they play few tiles, they likely kept good ones.
-        double oppEq = 0.0;
-        if (resp.word.length() <= 3) oppEq = 10.0;
+                            // [FIX 1] Manual string length calculation for char array
+                            int wordLen = 0;
+                            while(wordLen < 15 && resp.word[wordLen] != '\0') wordLen++;
 
-        if ((s + oppEq) > bestOppTotal) bestOppTotal = s + oppEq;
-    }
-}
-// Subtract TOTAL, not just SCORE
-batchNAV += (long long)((myMoveScore + myEquity) - bestOppTotal);
+                            // Quick Equity Estimate for Opponent
+                            double estimatedOppEquity = 0.0;
+                            if (s < 25 && wordLen <= 3) estimatedOppEquity = 12.0;
+
+                            if ((s + estimatedOppEquity) > bestOppTotal) bestOppTotal = s + estimatedOppEquity;
+                        }
+                    }
+
+                    // [FIX 2] Use candidates[k].score instead of undefined 'myMoveScore'
+                    batchNAV += (long long)((candidates[k].score + myEquity) - bestOppTotal);
                 }
                 return batchNAV;
              }));
