@@ -47,56 +47,52 @@ bool leavesTWSOpen(const MoveCandidate& move, const LetterBoard& board) {
 
 // --- MAIN SEARCH ---
 
-MoveCandidate Vanguard::search(const LetterBoard& board,
-                               const Board& bonusBoard,
-                               const TileRack& rack,
-                               Spy& spy,
-                               Dictionary& dict,
-                               int timeLimitMs,
-                               int bagSize,
-                               int scoreDiff,
-                               OpponentType oppType)
+    MoveCandidate Vanguard::search(const LetterBoard& board,
+                                   const Board& bonusBoard,
+                                   const TileRack& rack,
+                                   Spy& spy,
+                                   Dictionary& dict,
+                                   int timeLimitMs,
+                                   int bagSize,
+                                   int scoreDiff, // (MyScore - OppScore)
+                                   OpponentType oppType)
 {
-    // 1. Generate ALL legal moves
     vector<MoveCandidate> candidates = MoveGenerator::generate(board, rack, dict, false);
 
     if (candidates.empty()) {
-        MoveCandidate pass;
-        pass.word[0] = '\0';
-        return pass;
+        MoveCandidate pass; pass.word[0] = '\0'; return pass;
     }
 
     MoveCandidate bestMove;
     bestMove.score = -10000;
     bestMove.word[0] = '\0';
 
-    // 2. SCORING LOOP
-    // 2. SCORING LOOP
+    // PANIC MODE CHECK
+    // If we are losing by > 40 points, disable defense. We need to catch up.
+    bool panicMode = (scoreDiff < -40);
+
     for (auto& cand : candidates) {
 
-        // A. Base Score (Points)
+        // A. Base Score
         int logicScore = Mechanics::calculateTrueScore(cand, board, bonusBoard);
 
-        // B. RACK EQUITY (New Injection)
-        // This gives Cutie_Pi the same rack awareness as Speedi_Pi
+        // B. Rack Equity (Keep Good Tiles)
         float leaveVal = 0.0f;
         for(char c : cand.leave) {
             if(c == '\0') break;
             leaveVal += Heuristics::getLeaveValue(c);
         }
 
-        // C. STRATEGIC ADJUSTMENT (Tower Defense)
+        // C. Tower Defense
         int penalty = 0;
-        if (oppType == OpponentType::GREEDY) {
+
+        // Only apply penalty if opponent is Greedy AND we are NOT panicking.
+        if (oppType == OpponentType::GREEDY && !panicMode) {
             if (leavesTWSOpen(cand, board)) {
                 penalty = 25;
             }
         }
-        else if (oppType == OpponentType::SMART) {
-            penalty = 0;
-        }
 
-        // Final Score = Points + Rack Leave - Danger Penalty
         cand.score = logicScore + (int)leaveVal - penalty;
 
         if (cand.score > bestMove.score) {
