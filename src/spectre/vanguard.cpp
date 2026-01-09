@@ -1,6 +1,7 @@
 #include "../../include/spectre/vanguard.h"
 #include "../../include/spectre/move_generator.h"
 #include "../../include/engine/mechanics.h" // Source of Truth
+#include "../../include/spectre/logger.h"
 #include "../../include/heuristics.h"
 #include <algorithm>
 #include <random>
@@ -9,6 +10,7 @@
 #include <iostream>
 #include <thread>
 #include <future>
+#include <iomanip>
 
 using namespace std;
 
@@ -82,6 +84,13 @@ MoveCandidate Vanguard::search(const LetterBoard& board, const Board& bonusBoard
     sort(candidates.begin(), candidates.end(), [](const MoveCandidate& a, const MoveCandidate& b) {
         return a.score > b.score;
     });
+
+    {
+        ScopedLogger log;
+        std::cout << "[VANGUARD] Thinking... (" << candidates.size() << " candidates)" << std::endl;
+        if(!candidates.empty())
+            std::cout << "[VANGUARD] Top Static: " << candidates[0].word << " (" << candidates[0].score << ")" << std::endl;
+    }
 
     // OPTIMIZATION: If we have a massive lead move (Bingo), take it.
     if (candidates.size() > 1 && candidates[0].score > candidates[1].score + 40) {
@@ -169,9 +178,22 @@ MoveCandidate Vanguard::search(const LetterBoard& board, const Board& bonusBoard
     int bestIdx = 0;
     double bestVal = -999999.0;
 
+    {
+        ScopedLogger log;
+        std::cout << "[VANGUARD] Sim Results:" << std::endl;
+        std::cout << left << setw(15) << "Word" << setw(10) << "Static" << setw(10) << "NetScore" << std::endl;
+    }
+
     for (int i = 0; i < candidateCount; i++) {
         if (simCounts[i] == 0) continue;
         double avgNet = (double)totalNetScore[i] / simCounts[i];
+
+        {
+            ScopedLogger log;
+            std::cout << left << setw(15) << candidates[i].word
+                      << setw(10) << candidates[i].score
+                      << setw(10) << avgNet << std::endl;
+        }
 
         // Weighted: 70% Sim (Strategy) + 30% Raw Score (Greed)
         double heuristic = (avgNet * 0.7) + (candidates[i].score * 0.3);
@@ -180,6 +202,11 @@ MoveCandidate Vanguard::search(const LetterBoard& board, const Board& bonusBoard
             bestVal = heuristic;
             bestIdx = i;
         }
+    }
+
+    {
+        ScopedLogger log;
+        std::cout << "[VANGUARD] Chose: " << candidates[bestIdx].word << std::endl;
     }
 
     return candidates[bestIdx];

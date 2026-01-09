@@ -3,6 +3,7 @@
 #include "../../include/spectre/move_generator.h"
 #include "../../include/engine/mechanics.h"
 #include "../../include/engine/dictionary.h"
+#include "../../include/spectre/logger.h"
 #include <algorithm>
 #include <iostream>
 #include <cmath>
@@ -19,6 +20,13 @@ Spy::Spy() {
 }
 
 void Spy::observeOpponentMove(const Move& move, const LetterBoard& preMoveBoard) {
+
+    {
+        ScopedLogger log;
+        cout << "[SPY] Observing Move: " << move.word
+                  << " (" << move.row << "," << move.col << ")" << endl;
+    }
+
     if (unseenPool.empty()) return;
 
     // 1. DEDUCE PLAYED TILES
@@ -84,8 +92,15 @@ void Spy::observeOpponentMove(const Move& move, const LetterBoard& preMoveBoard)
         totalWeight += p.weight;
     }
 
+    {
+        ScopedLogger log;
+        std::cout << "[SPY] Filter Stats: " << totalWeight << " total probability mass." << std::endl;
+    }
+
     // 4. RESAMPLE (Survival of the Fittest)
     if (totalWeight < 0.0001) {
+        ScopedLogger log;
+        std::cout << "[SPY] PANIC: Model collapsed. Resetting." << std::endl;
         initParticles(); // Panic Reset: Our model was wrong, reboot.
     } else {
         resampleParticles(totalWeight);
@@ -152,6 +167,11 @@ int Spy::findBestPossibleScore(const std::vector<char>& rack, const LetterBoard&
     for (char c : alphabet) {
         int count = tracker.getUnseenCount(c);
         for (int k=0; k<count; k++) unseenPool.push_back(c);
+    }
+
+    {
+        ScopedLogger log;
+        std::cout << "[SPY] Ground Truth: " << unseenPool.size() << " tiles unseen." << std::endl;
     }
 
     // 2. REFILL PARTICLES

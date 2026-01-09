@@ -2,6 +2,7 @@
 #include "../../include/spectre/move_generator.h"
 #include "../../include/heuristics.h"
 #include "../../include/engine/mechanics.h"
+#include "../../include/spectre/logger.h"
 #include <algorithm>
 #include <cstring>
 #include <iostream>
@@ -49,6 +50,14 @@ static TileRack countsToRack(const int* counts) {
 
 Move Judge::solveEndgame(const LetterBoard& board, const Board& bonusBoard,
                          const TileRack& myRack, const TileRack& oppRack, Dictionary& dict) {
+
+    {
+        ScopedLogger log;
+        std::cout << "[JUDGE] ENDGAME SOLVER ACTIVATED." << std::endl;
+        std::cout << "[JUDGE] My Rack: "; for(auto t:myRack) std::cout<<t.letter;
+        std::cout << " | Opp Rack: "; for(auto t:oppRack) std::cout<<t.letter;
+        std::cout << std::endl;
+    }
 
     // 1. Setup Lightweight Racks (Histograms)
     int myRackCounts[27] = {0};
@@ -105,6 +114,11 @@ Move Judge::solveEndgame(const LetterBoard& board, const Board& bonusBoard,
             int bonus = 0;
             for(int i=0; i<26; i++) bonus += oppRackCounts[i] * Heuristics::getTileValue((char)('A'+i));
 
+            {
+                ScopedLogger log;
+                std::cout << "[JUDGE] Found Mate in 1: " << move.word << std::endl;
+            }
+
             // Return immediately - going out on turn 1 of endgame is almost always optimal
             return candidateToMove(move);
         }
@@ -122,6 +136,11 @@ Move Judge::solveEndgame(const LetterBoard& board, const Board& bonusBoard,
         if (alpha >= beta) break; // Prune
 
         if (duration_cast<milliseconds>(steady_clock::now() - startTime).count() > timeBudgetMs) break;
+    }
+
+    {
+        ScopedLogger log;
+        std::cout << "[JUDGE] Solution: " << bestMove.word << " (Val: " << bestVal << ")" << std::endl;
     }
 
     return candidateToMove(bestMove);
