@@ -5,6 +5,7 @@
 #include "../include/spectre/vanguard.h"
 #include "../include/engine/dictionary.h"
 #include "../include/modes/PvE/pve.h"
+#include "../include/spectre/judge.h"
 #include "../include/engine/mechanics.h"
 
 #include <cstring>
@@ -121,6 +122,7 @@ Move AIPlayer::getMove(const GameState& state,
     }
 
     candidates.clear();
+
     spectre::MoveCandidate bestMove;
     bestMove.word[0] = '\0';
     bestMove.score = -10000;
@@ -151,27 +153,41 @@ Move AIPlayer::getMove(const GameState& state,
     // BRAIN 2: CUTIE_PI (Spectre Engine)
     // ---------------------------------------------------------
     else {
+        // CUTIE_PI LOGIC
         const Player& me = state.players[state.currentPlayerIndex];
         const Player& opp = state.players[1 - state.currentPlayerIndex];
 
-        // 1. Calculate Context
-        int scoreDiff = me.score - opp.score;
-        int bagSize = state.bag.size();
-
-        // 2. Update Spy
+        // Update Spy
         spy.updateGroundTruth(state.board, me.rack, state.bag);
 
-        // 3. Run Vanguard with Context
-        bestMove = Vanguard::search(
-            state.board,
-            bonusBoard,
-            me.rack,
-            spy,
-            gDictionary,
-            3000,
-            bagSize,
-            scoreDiff
-        );
+        // DECISION FORK: ENDGAME vs MIDGAME
+        if (state.bag.empty()) {
+            // >>> THE JUDGE (Endgame Solver) <<<
+            // We need to infer opponent rack one last time
+            std::vector<char> inferredOpp = spy.generateWeightedRack();
+            TileRack oppRack;
+            for(char c : inferredOpp) { Tile t; t.letter=c; t.points=0; oppRack.push_back(t); }
+
+            // Convert Spectre Move to Engine Move directly inside Judge or here
+            Move jMove = Judge::solveEndgame(state.board, bonusBoard, me.rack, oppRack, gDictionary);
+            return jMove;
+        }
+        else {
+            // >>> THE VANGUARD (Midgame Strategy) <<<
+            int scoreDiff = me.score - opp.score;
+            int bagSize = state.bag.size();
+
+            bestMove = Vanguard::search(
+                state.board,
+                bonusBoard,
+                me.rack,
+                spy,
+                gDictionary,
+                3000,
+                bagSize,
+                scoreDiff
+            );
+        }
     }
 
     // ---------------------------------------------------------

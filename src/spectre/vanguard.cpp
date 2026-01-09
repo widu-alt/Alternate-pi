@@ -67,9 +67,9 @@ TileRack countsToRack(const int* counts) {
 // --- MAIN SEARCH ---
 
     MoveCandidate Vanguard::search(const LetterBoard& board, const Board& bonusBoard,
-                                   const TileRack& rack, const Spy& spy,
-                                   Dictionary& dict, int timeLimitMs,
-                                   int bagSize, int scoreDiff) {
+                               const TileRack& rack, const Spy& spy,
+                               Dictionary& dict, int timeLimitMs,
+                               int bagSize, int scoreDiff) {
 
     // 1. GENERATE
     vector<MoveCandidate> candidates = MoveGenerator::generate(board, rack, dict, true);
@@ -77,8 +77,7 @@ TileRack countsToRack(const int* counts) {
         MoveCandidate pass; pass.word[0] = '\0'; pass.score = 0; return pass;
     }
 
-    // 2. STATIC SCORING + EQUITY FILTER
-    // We can run a fast static Equity check here to prune garbage moves
+    // 2. STATIC SCORING
     for (auto& cand : candidates) {
         cand.score = Mechanics::calculateTrueScore(cand, board, bonusBoard);
     }
@@ -87,7 +86,7 @@ TileRack countsToRack(const int* counts) {
         return a.score > b.score;
     });
 
-    // 3. MONTE CARLO SIMULATION (UNLEASHED)
+    // 3. MONTE CARLO SIMULATION
     int candidateCount = min((int)candidates.size(), 12);
 
     int myRackCounts[27] = {0};
@@ -96,11 +95,13 @@ TileRack countsToRack(const int* counts) {
         else if (isalpha(t.letter)) myRackCounts[toupper(t.letter) - 'A']++;
     }
 
-    vector<long long> totalNav(candidateCount, 0); // Net Asset Value accumulator
+    vector<long long> totalNav(candidateCount, 0);
     vector<int> simCounts(candidateCount, 0);
 
     auto startTime = chrono::high_resolution_clock::now();
     int totalSims = 0;
+
+    // Concurrency
     unsigned int nThreads = std::thread::hardware_concurrency();
     if(nThreads == 0) nThreads = 2;
 
@@ -114,21 +115,41 @@ TileRack countsToRack(const int* counts) {
                  timeUp = true; break;
              }
 
-            futures.push_back(async(launch::async,
-                [k, batchSize, &candidates, board, bonusBoard, &spy, myRackCounts, &dict, bagSize, scoreDiff]() {
+             // CAPTURE 'board' BY VALUE (Creates a clean copy per thread)
+             futures.push_back(async(launch::async, [k, batchSize, candidates, board, bonusBoard, &spy, myRackCounts, &dict, bagSize, scoreDiff]() {
 
                 long long batchNAV = 0;
 
-                // [NEW] Pre-calculate My Leave Equity once (it's static for the move)
-                // We need to reconstruct the leave rack from the move
-                int tempRack[27];
-                memcpy(tempRack, myRackCounts, sizeof(tempRack));
-                simApplyMove((LetterBoard&)board, candidates[k], tempRack); // (Hack: cast const away for temp calc or use helper logic)
-                // Actually simApplyMove modifies board, we need just rack logic.
-                // Let's rely on the simulation loop to do it cleanly.
+                // STEP A: Calculate My Equity ONCE (Static for this move)
+                // Use a temporary rack to calculate the leave, DO NOT touch the board yet.
+                int myLeaveCounts[27];
+                memcpy(myLeaveCounts, myRackCounts, sizeof(myLeaveCounts));
 
+                // Manual removal (Logic extracted from simApplyMove to avoid board dependency)
+                const auto& move = candidates[k];
+                for (int i=0; move.word[i] != '\0'; i++) {
+                    // Check if tile was placed (we need board to know if it was empty)
+                    int r = move.row + (move.isHorizontal ? 0 : i);
+                    int c = move.col + (move.isHorizontal ? i : 0);
+                    // Only remove if we placed it (board was empty)
+                    if (board[r][c] == ' ') {
+                        char letter = move.word[i];
+                        if (letter >= 'a' && letter <= 'z') { // Blank
+                            if (myLeaveCounts[26] > 0) myLeaveCounts[26]--;
+                        } else {
+                            int idx = letter - 'A';
+                            if (myLeaveCounts[idx] > 0) myLeaveCounts[idx]--;
+                            else if (myLeaveCounts[26] > 0) myLeaveCounts[26]--;
+                        }
+                    }
+                }
+
+                TileRack myLeave = countsToRack(myLeaveCounts);
+                double myEquity = Treasurer::evaluateEquity(myLeave, scoreDiff, bagSize);
+
+                // STEP B: Run Simulations
                 for(int b=0; b<batchSize; b++) {
-                    // A. SIMULATION SETUP
+                    // 1. Setup World
                     vector<char> oppTiles = spy.generateWeightedRack();
                     int oppRackCounts[27] = {0};
                     for(char c : oppTiles) {
@@ -136,44 +157,26 @@ TileRack countsToRack(const int* counts) {
                         else oppRackCounts[c - 'A']++;
                     }
 
+                    // 2. Apply My Move (On a fresh board copy)
                     LetterBoard simBoard = board;
-                    int mySimRack[27];
+                    int mySimRack[27]; // Dummy, we already calculated equity
                     memcpy(mySimRack, myRackCounts, sizeof(mySimRack));
-
-                    // B. APPLY MY MOVE
-                    int myMoveScore = candidates[k].score;
                     simApplyMove(simBoard, candidates[k], mySimRack);
 
-                    // [NEW] C. EVALUATE MY EQUITY (The Treasurer)
-                    TileRack myLeave = countsToRack(mySimRack);
-                    // Assume 0 score diff for static check or pass actual diff?
-                    // For simulation, we assume parity or use current game state if passed in.
-                    // Assuming scoreDiff = 0 for V1 simplicity in loop.
-                    double myEquity = Treasurer::evaluateEquity(myLeave, scoreDiff, bagSize);
-
-                    // D. OPPONENT RESPONSE
+                    // 3. Opponent Response
                     TileRack oppTileRack = countsToRack(oppRackCounts);
                     vector<MoveCandidate> responses = MoveGenerator::generate(simBoard, oppTileRack, dict, false);
 
                     int bestOppScore = 0;
-                    double bestOppEquity = 0.0;
-
                     if(!responses.empty()) {
-                        // Opponent plays optimally for NAV (Score + Equity)
-                        // But finding Equity for every opp move is too slow.
-                        // Approximation: Opponent plays for Score.
                         for(const auto& resp : responses) {
                             int s = Mechanics::calculateTrueScore(resp, simBoard, bonusBoard);
                             if(s > bestOppScore) bestOppScore = s;
                         }
                     }
 
-                    // E. CALCULATE NET ASSET VALUE (NAV)
-                    // NAV = (MyScore + MyEquity) - (OppScore)
-                    // Note: We subtract OppScore because it hurts our margin.
-                    // We DO NOT subtract OppEquity because we can't control their luck next turn easily.
-
-                    batchNAV += (long long)((myMoveScore + myEquity) - bestOppScore);
+                    // 4. NAV Calculation
+                    batchNAV += (long long)((candidates[k].score + myEquity) - bestOppScore);
                 }
                 return batchNAV;
              }));
@@ -188,15 +191,7 @@ TileRack countsToRack(const int* counts) {
         }
     }
 
-    {
-        ScopedLogger log;
-        std::cout << "[VANGUARD] Total Sims: " << totalSims << std::endl;
-        std::cout << "[VANGUARD] NAV Analysis (Treasurer Enabled):" << std::endl;
-        std::cout << left << setw(15) << "Word" << setw(10) << "Score" << setw(10) << "AvgNAV" << std::endl;
-        std::cout << "-----------------------------------" << std::endl;
-    }
-
-    // 4. SELECTION
+    // 4. SELECTION (Average NAV)
     int bestIdx = 0;
     double bestVal = -999999.0;
 
