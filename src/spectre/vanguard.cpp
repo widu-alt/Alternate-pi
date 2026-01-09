@@ -167,16 +167,21 @@ TileRack countsToRack(const int* counts) {
                     TileRack oppTileRack = countsToRack(oppRackCounts);
                     vector<MoveCandidate> responses = MoveGenerator::generate(simBoard, oppTileRack, dict, false);
 
-                    int bestOppScore = 0;
-                    if(!responses.empty()) {
-                        for(const auto& resp : responses) {
-                            int s = Mechanics::calculateTrueScore(resp, simBoard, bonusBoard);
-                            if(s > bestOppScore) bestOppScore = s;
-                        }
-                    }
+                    double bestOppTotal = 0.0;
+if(!responses.empty()) {
+    for(const auto& resp : responses) {
+        int s = Mechanics::calculateTrueScore(resp, simBoard, bonusBoard);
 
-                    // 4. NAV Calculation
-                    batchNAV += (long long)((candidates[k].score + myEquity) - bestOppScore);
+        // Quick Equity Estimate for Opponent
+        // If they play few tiles, they likely kept good ones.
+        double oppEq = 0.0;
+        if (resp.word.length() <= 3) oppEq = 10.0;
+
+        if ((s + oppEq) > bestOppTotal) bestOppTotal = s + oppEq;
+    }
+}
+// Subtract TOTAL, not just SCORE
+batchNAV += (long long)((myMoveScore + myEquity) - bestOppTotal);
                 }
                 return batchNAV;
              }));

@@ -162,15 +162,25 @@ Move AIPlayer::getMove(const GameState& state,
 
         // DECISION FORK: ENDGAME vs MIDGAME
         if (state.bag.empty()) {
-            // >>> THE JUDGE (Endgame Solver) <<<
-            // We need to infer opponent rack one last time
-            std::vector<char> inferredOpp = spy.generateWeightedRack();
-            TileRack oppRack;
-            for(char c : inferredOpp) { Tile t; t.letter=c; t.points=0; oppRack.push_back(t); }
-
-            // Convert Spectre Move to Engine Move directly inside Judge or here
+            // 1. Get the Raw Move from Judge
             Move jMove = Judge::solveEndgame(state.board, bonusBoard, me.rack, oppRack, gDictionary);
-            return jMove;
+
+            // 2. CONVERT TO DIFFERENTIAL (The Missing Link)
+            // We need to reconstruct a 'MoveCandidate' to use the helper,
+            // or just manually call calculateDifferential with the data we have.
+
+            spectre::MoveCandidate endCand;
+            endCand.row = jMove.row;
+            endCand.col = jMove.col;
+            endCand.isHorizontal = jMove.horizontal;
+            // Copy string safely
+            size_t len = jMove.word.length();
+            for(size_t i=0; i<len && i<15; i++) endCand.word[i] = jMove.word[i];
+            endCand.word[len] = '\0';
+
+            // 3. Assign to bestMove so it falls through to the Execution block below
+            bestMove = endCand;
+            bestMove.score = 1000; // Force play
         }
         else {
             // >>> THE VANGUARD (Midgame Strategy) <<<
