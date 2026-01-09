@@ -46,13 +46,13 @@ struct SearchRange {
     bool isEmpty;
 };
 
-Move calculateDifferential(const Board& board, const spectre::MoveCandidate& cand) {
+// Convert a Spectre Candidate to a Legal Engine Move
+Move computeMoveFromCandidate(const LetterBoard& board, const spectre::MoveCandidate& cand) {
     Move m;
     m.type = MoveType::PLAY;
     m.row = cand.row;
     m.col = cand.col;
     m.horizontal = cand.isHorizontal;
-    m.score = cand.score;
 
     int r = cand.row;
     int c = cand.col;
@@ -60,8 +60,10 @@ Move calculateDifferential(const Board& board, const spectre::MoveCandidate& can
     int dc = cand.isHorizontal ? 1 : 0;
 
     for (int i = 0; cand.word[i] != '\0'; ++i) {
-        if (board.boundsCheck(r, c)) {
-            if (!board.hasTile(r, c)) {
+        // 1. Bounds Check
+        if (r >= 0 && r < 15 && c >= 0 && c < 15) {
+            // 2. Occupancy Check
+            if (board[r][c] == ' ' || board[r][c] == 0) {
                 m.word += cand.word[i];
             }
         }
@@ -91,11 +93,11 @@ string AIPlayer::getTilesToExchange(const TileRack& rack) {
 Move AIPlayer::getMove(const GameState& state, const Board& bonusBoard, const LastMoveInfo& lastMove, bool isFirstTurn) {
 
     // ---------------------------------------------------------
-    // BRAIN 1: SPEEDI_PI (Greedy) - Logic for P1 if applicable
+    // BRAIN 1: SPEEDI_PI (Greedy)
     // ---------------------------------------------------------
     if (state.currentPlayerIndex == 0) {
         spectre::MoveCandidate cand = spectre::Vanguard::search(
-             (const spectre::LetterBoard&)state.board,
+             state.board,
              bonusBoard,
              state.players[0].rack,
              spy,
@@ -105,8 +107,8 @@ Move AIPlayer::getMove(const GameState& state, const Board& bonusBoard, const La
              0
         );
 
-        if (cand.word[0] != '\0') return calculateDifferential(state.board, cand);
-        return Move(MoveType::PASS);
+        if (cand.word[0] != '\0') return computeMoveFromCandidate(state.board, cand);
+        return Move::Pass();
     }
 
     // ---------------------------------------------------------
@@ -120,8 +122,11 @@ Move AIPlayer::getMove(const GameState& state, const Board& bonusBoard, const La
     int scoreDiff = me.score - opp.score;
     int bagSize = state.bag.size();
 
-    spy.observeOpponentMove(lastMove, (const spectre::LetterBoard&)state.board);
-    spy.updateGroundTruth((const spectre::LetterBoard&)state.board, me.rack, state.bag);
+    // [FIX] Extract the actual Move object from the wrapper and check existence
+    if (lastMove.exists) {
+        spy.observeOpponentMove(lastMove.move, state.board);
+    }
+    spy.updateGroundTruth(state.board, me.rack, state.bag);
 
     spectre::MoveCandidate bestCand;
 
@@ -129,12 +134,17 @@ Move AIPlayer::getMove(const GameState& state, const Board& bonusBoard, const La
     if (state.bag.empty()) {
         // >>> THE JUDGE <<<
         std::vector<char> inferredOpp = spy.generateWeightedRack();
-        spectre::TileRack oppRack;
-        for(char c : inferredOpp) { spectre::Tile t; t.letter=c; t.points=0; oppRack.push_back(t); }
+        TileRack oppRack;
+        for(char c : inferredOpp) {
+            Tile t;
+            t.letter=c;
+            t.points=0;
+            oppRack.push_back(t);
+        }
 
-        // Judge returns a global 'Move' object, we convert to Candidate for consistent handling below
-        spectre::Move jMove = spectre::Judge::solveEndgame(
-            (const spectre::LetterBoard&)state.board,
+        // Judge returns Global Move
+        Move jMove = spectre::Judge::solveEndgame(
+            state.board,
             bonusBoard,
             me.rack,
             oppRack,
@@ -153,7 +163,7 @@ Move AIPlayer::getMove(const GameState& state, const Board& bonusBoard, const La
     else {
         // >>> VANGUARD <<<
         bestCand = spectre::Vanguard::search(
-            (const spectre::LetterBoard&)state.board,
+            state.board,
             bonusBoard,
             me.rack,
             spy,
@@ -167,14 +177,12 @@ Move AIPlayer::getMove(const GameState& state, const Board& bonusBoard, const La
     // ---------------------------------------------------------
     // SAFETY VALVE: EXCHANGE LOGIC
     // ---------------------------------------------------------
-    // If Vanguard returns a PASS (empty word) in Midgame, we MUST Exchange.
 
     if (bestCand.word[0] == '\0' && state.bag.size() >= 7) {
         std::string toxic = "QJZXV";
         std::string toExchange = "";
         std::map<char, int> counts;
 
-        // A. Mark Toxic Tiles
         for (const auto& tile : me.rack) {
             counts[tile.letter]++;
             if (toxic.find(tile.letter) != std::string::npos) {
@@ -182,7 +190,6 @@ Move AIPlayer::getMove(const GameState& state, const Board& bonusBoard, const La
             }
         }
 
-        // B. Mark Duplicates
         if (toExchange.empty()) {
             for (const auto& tile : me.rack) {
                 if (counts[tile.letter] > 2) {
@@ -192,16 +199,12 @@ Move AIPlayer::getMove(const GameState& state, const Board& bonusBoard, const La
             }
         }
 
-        // C. Forced Cycle (Dump 1 tile)
         if (toExchange.empty() && !me.rack.empty()) {
              toExchange += me.rack[0].letter;
         }
 
         if (!toExchange.empty()) {
-            Move exchangeMove;
-            exchangeMove.type = MoveType::EXCHANGE;
-            exchangeMove.word = toExchange;
-            return exchangeMove;
+            return Move::Exchange(toExchange);
         }
     }
 
@@ -209,10 +212,10 @@ Move AIPlayer::getMove(const GameState& state, const Board& bonusBoard, const La
     // EXECUTE PLAY
     // ---------------------------------------------------------
     if (bestCand.word[0] != '\0') {
-        return calculateDifferential(state.board, bestCand);
+        return computeMoveFromCandidate(state.board, bestCand);
     }
 
-    return Move(MoveType::PASS);
+    return Move::Pass();
 }
 
 Move AIPlayer::getEndGameResponse(const GameState& state, const LastMoveInfo& lastMove) {
