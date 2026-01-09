@@ -10,14 +10,14 @@ namespace spectre {
     class Vanguard {
     public:
         // Update: Now accepts 'const Spy&' instead of 'unseenBag'
-        static MoveCandidate search(
-            const LetterBoard& board,
-            const Board& bonusBoard,
-            const TileRack& rack,
-            const Spy& spy,
-            Dictionary& dict,
-            int timeLimitMs = 1000
-        );
+        static MoveCandidate search(const LetterBoard& board,
+                                    const Board& bonusBoard,
+                                    const TileRack& rack,
+                                    const Spy& spy,
+                                    Dictionary& dict,
+                                    int timeLimitMs,
+                                    int bagSize,
+                                    int scoreDiff);
 
     private:
         // Helper to play out a simulation

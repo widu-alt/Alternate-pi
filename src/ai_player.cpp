@@ -152,9 +152,26 @@ Move AIPlayer::getMove(const GameState& state,
     // ---------------------------------------------------------
     else {
         const Player& me = state.players[state.currentPlayerIndex];
+        const Player& opp = state.players[1 - state.currentPlayerIndex];
+
+        // 1. Calculate Context
+        int scoreDiff = me.score - opp.score;
+        int bagSize = state.bag.size();
+
+        // 2. Update Spy
         spy.updateGroundTruth(state.board, me.rack, state.bag);
 
-        bestMove = Vanguard::search(state.board, bonusBoard, me.rack, spy, gDictionary, 3000);
+        // 3. Run Vanguard with Context
+        bestMove = Vanguard::search(
+            state.board,
+            bonusBoard,
+            me.rack,
+            spy,
+            gDictionary,
+            3000,
+            bagSize,
+            scoreDiff
+        );
     }
 
     // ---------------------------------------------------------

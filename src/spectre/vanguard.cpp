@@ -66,9 +66,10 @@ TileRack countsToRack(const int* counts) {
 
 // --- MAIN SEARCH ---
 
-MoveCandidate Vanguard::search(const LetterBoard& board, const Board& bonusBoard,
-                               const TileRack& rack, const Spy& spy,
-                               Dictionary& dict, int timeLimitMs) {
+    MoveCandidate Vanguard::search(const LetterBoard& board, const Board& bonusBoard,
+                                   const TileRack& rack, const Spy& spy,
+                                   Dictionary& dict, int timeLimitMs,
+                                   int bagSize, int scoreDiff) {
 
     // 1. GENERATE
     vector<MoveCandidate> candidates = MoveGenerator::generate(board, rack, dict, true);
@@ -113,7 +114,8 @@ MoveCandidate Vanguard::search(const LetterBoard& board, const Board& bonusBoard
                  timeUp = true; break;
              }
 
-             futures.push_back(async(launch::async, [k, batchSize, &candidates, board, bonusBoard, &spy, myRackCounts, &dict]() {
+            futures.push_back(async(launch::async,
+                [k, batchSize, &candidates, board, bonusBoard, &spy, myRackCounts, &dict, bagSize, scoreDiff]() {
 
                 long long batchNAV = 0;
 
@@ -147,7 +149,7 @@ MoveCandidate Vanguard::search(const LetterBoard& board, const Board& bonusBoard
                     // Assume 0 score diff for static check or pass actual diff?
                     // For simulation, we assume parity or use current game state if passed in.
                     // Assuming scoreDiff = 0 for V1 simplicity in loop.
-                    double myEquity = Treasurer::evaluateEquity(myLeave, 0, 50); // 50 = Bag Size dummy, fix later to pass state
+                    double myEquity = Treasurer::evaluateEquity(myLeave, scoreDiff, bagSize);
 
                     // D. OPPONENT RESPONSE
                     TileRack oppTileRack = countsToRack(oppRackCounts);
