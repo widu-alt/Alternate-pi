@@ -52,4 +52,6 @@ add_executable(scrabblePi src/engine/board.cpp
         include/engine/game_director.h
         src/engine/game_director.cpp
         include/spectre/treasurer.h
-        src/spectre/treasurer.cpp)
+        src/spectre/treasurer.cpp
+        include/spectre/profiler.h
+        src/spectre/profiler.cpp)

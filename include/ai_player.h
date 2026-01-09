@@ -6,6 +6,7 @@
 #include "player_controller.h"
 #include "spectre/move_generator.h"
 #include "spectre/spy.h"
+#include "spectre/profiler.h"
 #include <vector>
 #include <string>
 
@@ -38,6 +39,7 @@ public:
 private:
     AIStyle style;
     spectre::Spy spy;
+    spectre::Profiler profiler;
     std::vector<spectre::MoveCandidate> candidates;
 
     // Internal Helpers
