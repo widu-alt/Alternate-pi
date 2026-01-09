@@ -154,7 +154,7 @@ Move AIPlayer::getMove(const GameState& state,
         const Player& me = state.players[state.currentPlayerIndex];
         spy.updateGroundTruth(state.board, me.rack, state.bag);
 
-        bestMove = Vanguard::search(state.board, bonusBoard, me.rack, spy, gDictionary, 500);
+        bestMove = Vanguard::search(state.board, bonusBoard, me.rack, spy, gDictionary, 3000);
     }
 
     // ---------------------------------------------------------

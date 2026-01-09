@@ -19,15 +19,20 @@ Spy::Spy() {
     for(auto& p : particles) p.weight = 1.0;
 }
 
+// Helper to generate a cache key from a rack
+std::string getRackKey(const std::vector<char>& rack) {
+    std::string s(rack.begin(), rack.end());
+    std::sort(s.begin(), s.end());
+    return s;
+}
+
 void Spy::observeOpponentMove(const Move& move, const LetterBoard& preMoveBoard) {
+    if (unseenPool.empty()) return;
 
     {
         ScopedLogger log;
-        cout << "[SPY] Observing Move: " << move.word
-                  << " (" << move.row << "," << move.col << ")" << endl;
+        std::cout << "[SPY] Observing Move: " << move.word << std::endl;
     }
-
-    if (unseenPool.empty()) return;
 
     // 1. DEDUCE PLAYED TILES
     std::vector<char> tilesPlayed;
@@ -42,42 +47,28 @@ void Spy::observeOpponentMove(const Move& move, const LetterBoard& preMoveBoard)
         r += dr; c += dc;
     }
 
-    // 2. SCORE THE MOVE (The Truth)
+    // 2. SCORE THE MOVE
     Board bonusBoard = createBoard();
     MoveCandidate mc;
-    mc.row = move.row;
-    mc.col = move.col;
-    mc.isHorizontal = move.horizontal;
-
-    int len = 0;
-    while (len < 15 && len < (int)move.word.size()) {
-        mc.word[len] = move.word[len];
-        len++;
-    }
-    mc.word[len] = '\0';
-
+    mc.row = move.row; mc.col = move.col; mc.isHorizontal = move.horizontal;
+    int len = 0; while (len < 15 && len < (int)move.word.size()) { mc.word[len] = move.word[len]; len++; } mc.word[len] = '\0';
     int actualScore = Mechanics::calculateTrueScore(mc, preMoveBoard, bonusBoard);
 
-    // 3. UPDATE PARTICLES (The Filter)
+    // 3. UPDATE PARTICLES (With Caching)
     double totalWeight = 0.0;
+    std::map<std::string, int> scoreCache; // <--- THE CACHE
 
     for (auto& p : particles) {
-        // A. HARD FILTER (Do they have the tiles?)
+        // A. HARD FILTER
         std::vector<char> rackCopy = p.rack;
         bool possible = true;
-
         for (char t : tilesPlayed) {
             auto it = std::find(rackCopy.begin(), rackCopy.end(), t);
-            if (it != rackCopy.end()) {
-                *it = ' ';
-            } else {
-                auto blankIt = std::find(rackCopy.begin(), rackCopy.end(), '?');
-                if (blankIt != rackCopy.end()) {
-                    *blankIt = ' ';
-                } else {
-                    possible = false;
-                    break;
-                }
+            if (it != rackCopy.end()) *it = ' ';
+            else {
+                auto bit = std::find(rackCopy.begin(), rackCopy.end(), '?');
+                if (bit != rackCopy.end()) *bit = ' ';
+                else { possible = false; break; }
             }
         }
 
@@ -86,53 +77,59 @@ void Spy::observeOpponentMove(const Move& move, const LetterBoard& preMoveBoard)
             continue;
         }
 
-        // B. SOFT FILTER (Rationality Check)
-        double rationality = evaluateRationality(p.rack, actualScore, preMoveBoard);
+        // B. SOFT FILTER (Optimized)
+        // Check cache first
+        std::string key = getRackKey(p.rack);
+        int bestPossible = 0;
+
+        if (scoreCache.count(key)) {
+            bestPossible = scoreCache[key];
+        } else {
+            // Expensive calculation happens only once per unique rack
+            bestPossible = findBestPossibleScore(p.rack, preMoveBoard);
+            scoreCache[key] = bestPossible;
+        }
+
+        // Calculate Rationality inline to use cached bestPossible
+        double rationality = 0.0;
+        if (actualScore <= bestPossible) {
+            int delta = bestPossible - actualScore;
+            if (delta == 0) rationality = 1.0;
+            else if (delta < 5) rationality = 0.9;
+            else if (delta < 15) rationality = 0.5;
+            else if (delta < 30) rationality = 0.1;
+            else rationality = 0.01;
+        }
+
         p.weight *= rationality;
         totalWeight += p.weight;
     }
 
     {
         ScopedLogger log;
-        std::cout << "[SPY] Filter Stats: " << totalWeight << " total probability mass." << std::endl;
+        std::cout << "[SPY] Filter Stats: " << totalWeight << " mass. Unique Racks Analyzed: " << scoreCache.size() << std::endl;
     }
 
-    // 4. RESAMPLE (Survival of the Fittest)
+    // 4. RESAMPLE
     if (totalWeight < 0.0001) {
         ScopedLogger log;
         std::cout << "[SPY] PANIC: Model collapsed. Resetting." << std::endl;
-        initParticles(); // Panic Reset: Our model was wrong, reboot.
+        initParticles();
     } else {
         resampleParticles(totalWeight);
     }
 
-    // 5. TRANSITION STATE (The Memory Fix)
-    // Remove the played tiles from the surviving particles.
-    // They now represent the opponent's rack *after* the move, but *before* drawing.
+    // 5. TRANSITION
     for(auto& p : particles) {
         for(char t : tilesPlayed) {
             auto it = std::find(p.rack.begin(), p.rack.end(), t);
-            if(it != p.rack.end()) {
-                p.rack.erase(it);
-            } else {
-                // Must be a blank
+            if(it != p.rack.end()) p.rack.erase(it);
+            else {
                 auto bit = std::find(p.rack.begin(), p.rack.end(), '?');
                 if(bit != p.rack.end()) p.rack.erase(bit);
             }
         }
     }
-}
-
-double Spy::evaluateRationality(const std::vector<char>& rack, int actualScore, const LetterBoard& board) {
-    int bestPossible = findBestPossibleScore(rack, board);
-    if (actualScore > bestPossible) return 0.0;
-
-    int delta = bestPossible - actualScore;
-    if (delta == 0) return 1.0;
-    if (delta < 5)  return 0.9;
-    if (delta < 15) return 0.5;
-    if (delta < 30) return 0.1;
-    return 0.01;
 }
 
 int Spy::findBestPossibleScore(const std::vector<char>& rack, const LetterBoard& board) {

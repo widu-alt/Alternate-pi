@@ -28,7 +28,6 @@ namespace spectre {
         const int PARTICLE_COUNT = 1000;
 
         // Internal Logic
-        double evaluateRationality(const std::vector<char>& rack, int actualScore, const LetterBoard& board);
         int findBestPossibleScore(const std::vector<char>& rack, const LetterBoard& board);
 
         void initParticles();
