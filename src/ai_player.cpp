@@ -37,8 +37,6 @@ void AIPlayer::observeMove(const Move& move, const LetterBoard& board) {
     }
 }
 
-// --- HELPERS (Keep these for Speedi_Pi and general logic) ---
-
 // Optimization: Prune the search space
 struct SearchRange {
     int minRow, maxRow, minCol, maxCol;
@@ -127,27 +125,43 @@ Move AIPlayer::getMove(const GameState& state,
     bestMove.word[0] = '\0';
     bestMove.score = -10000;
 
+    const Player& me = state.players[state.currentPlayerIndex];
     // ---------------------------------------------------------
-    // BRAIN 1: SPEEDI_PI (Static Heuristics Only)
+    // BRAIN 1: SPEEDI_PI (NOW FULLY OPTIMIZED)
     // ---------------------------------------------------------
     if (style == AIStyle::SPEEDI_PI) {
-        // Direct call to MoveGenerator (No Vanguard class overhead)
-        findAllMoves(state.board, state.players[state.currentPlayerIndex].rack);
 
-        if (!candidates.empty()) {
-            for (auto& cand : candidates) {
-                int boardScore = Mechanics::calculateTrueScore(cand, state.board, bonusBoard);
-                float leavePenalty = 0.0f;
-                for (int i = 0; cand.leave[i] != '\0'; i++) {
-                    leavePenalty += Heuristics::getLeaveValue(cand.leave[i]);
-                }
-                cand.score = boardScore + (int)leavePenalty;
-            }
-            // Sort by score
-            std::sort(candidates.begin(), candidates.end(),
-                [](const MoveCandidate& a, const MoveCandidate& b) { return a.score > b.score; });
-            bestMove = candidates[0];
+        // 1. Convert Rack to Histogram (Stack)
+        int rackCounts[27] = {0};
+        for (const auto& t : me.rack) {
+            if (t.letter == '?') rackCounts[26]++;
+            else if (isalpha(t.letter)) rackCounts[toupper(t.letter) - 'A']++;
         }
+
+        // 2. Define Zero-Alloc Consumer
+        auto consumer = [&](MoveCandidate& cand, int* remainingRack) -> bool {
+            // A. Base Logic Score
+            int boardScore = Mechanics::calculateTrueScore(cand, state.board, bonusBoard);
+
+            // B. Fast Leave Score (No string construction)
+            float leavePenalty = 0.0f;
+            for(int i=0; i<26; i++) {
+                if (remainingRack[i] > 0) {
+                    leavePenalty += (Heuristics::getLeaveValue((char)('A'+i)) * remainingRack[i]);
+                }
+            }
+
+            cand.score = boardScore + (int)leavePenalty;
+
+            // C. Track Best
+            if (cand.score > bestMove.score) {
+                bestMove = cand;
+            }
+            return true;
+        };
+
+        // 3. Execute Pipeline (No Vectors, No Sorts)
+        MoveGenerator::generate_raw(state.board, rackCounts, gDictionary, consumer);
     }
     // ---------------------------------------------------------
     // BRAIN 2: CUTIE_PI (Spectre Engine)
@@ -193,7 +207,6 @@ Move AIPlayer::getMove(const GameState& state,
     // ---------------------------------------------------------
     // EXECUTION & TRANSLATION
     // ---------------------------------------------------------
-    const Player& me = state.players[state.currentPlayerIndex];
     bool shouldExchange = (bestMove.word[0] == '\0') ||
                           (bestMove.score < 14 && isRackBad(me.rack) && state.bag.size() >= 7);
 
