@@ -7,6 +7,7 @@
 #include <iostream>
 #include <limits>
 #include <algorithm>
+#include <cstring>
 
 using namespace std;
 
@@ -129,7 +130,8 @@ Move HumanPlayer::handleRackLogic(TileRack &rack, TileBag &bag) {
         string lettersStr;
         cin >> lettersStr;
         Move m(MoveType::EXCHANGE);
-        m.exchangeLetters = lettersStr;
+        strncpy(m.exchangeLetters, lettersStr.c_str(), 7);
+        m.exchangeLetters[7] = '\0'; // Safety null-terminator
         return m;
     }
 
@@ -185,7 +187,10 @@ Move HumanPlayer::parseMoveInput(const Board &bonusBoard,
     tempMove.row = row;
     tempMove.col = col;
     tempMove.horizontal = horizontal;
-    tempMove.word = word;
+
+    strncpy(tempMove.word, word.c_str(), 15);
+    tempMove.word[15] = '\0'; // Safety
+
     // Normalize word to upper
     for(auto &c : tempMove.word) c = toupper(c);
 

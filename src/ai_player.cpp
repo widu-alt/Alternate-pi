@@ -200,7 +200,11 @@ Move AIPlayer::getMove(const GameState& state,
     if (shouldExchange) {
         if (state.bag.size() < 7) return Move(MoveType::PASS);
         Move ex; ex.type = MoveType::EXCHANGE;
-        ex.exchangeLetters = getTilesToExchange(me.rack);
+
+        string s = getTilesToExchange(me.rack);
+        strncpy(ex.exchangeLetters, s.c_str(), 7);
+        ex.exchangeLetters[7] = '\0';
+
         return ex;
     }
 
@@ -211,7 +215,10 @@ Move AIPlayer::getMove(const GameState& state,
     result.type = MoveType::PLAY;
     result.row = diff.row;
     result.col = diff.col;
-    result.word = diff.word;
+
+    strncpy(result.word, diff.word.c_str(), 15);
+    result.word[15] = '\0';
+
     result.horizontal = bestMove.isHorizontal;
     return result;
 }

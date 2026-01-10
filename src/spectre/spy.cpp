@@ -50,8 +50,13 @@ void Spy::observeOpponentMove(const Move& move, const LetterBoard& preMoveBoard)
     // 2. SCORE THE MOVE
     Board bonusBoard = createBoard();
     MoveCandidate mc;
-    mc.row = move.row; mc.col = move.col; mc.isHorizontal = move.horizontal;
-    int len = 0; while (len < 15 && len < (int)move.word.size()) { mc.word[len] = move.word[len]; len++; } mc.word[len] = '\0';
+    mc.row = move.row;
+    mc.col = move.col;
+    mc.isHorizontal = move.horizontal;
+
+    strncpy(mc.word, move.word, 16);
+    mc.word[15] = '\0'; // Safety null-termination
+
     int actualScore = Mechanics::calculateTrueScore(mc, preMoveBoard, bonusBoard);
 
     // 3. UPDATE PARTICLES (With Caching)

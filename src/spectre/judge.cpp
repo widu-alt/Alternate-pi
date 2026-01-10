@@ -16,8 +16,8 @@ namespace spectre {
 
 // Convert move to standard format for return
 static Move candidateToMove(const MoveCandidate& cand, const LetterBoard& board) {
-    Move m;
-    m.type = MoveType::PLAY;
+    // 1. Initialize with explicit constructor
+    Move m(MoveType::PLAY);
     m.horizontal = cand.isHorizontal;
 
     // Track position as we iterate through the candidate word
@@ -27,22 +27,30 @@ static Move candidateToMove(const MoveCandidate& cand, const LetterBoard& board)
     int dc = cand.isHorizontal ? 1 : 0;
 
     bool anchorFound = false;
+    int writeIdx = 0; // Tracks position in m.word array
 
     int i = 0;
     while(i < 15 && cand.word[i] != '\0') {
+        // Check bounds safety
+        if (r >= 15 || c >= 15) break;
+
         // Check the board at the current position
         if (board[r][c] == ' ') {
             // Found an empty square! This is a tile we are placing.
 
-            // 1. If this is the first new tile, set it as the Move's start coordinate.
+            // A. If this is the first new tile, set it as the Move's start coordinate.
             if (!anchorFound) {
                 m.row = r;
                 m.col = c;
                 anchorFound = true;
             }
 
-            // 2. Add the letter to the filtered string (Referee expects only new tiles)
-            m.word += cand.word[i];
+            // B. Add the letter to the filtered char array
+            // Optimization: Only add if we have space (max 15 chars)
+            if (writeIdx < 15) {
+                m.word[writeIdx] = cand.word[i];
+                writeIdx++;
+            }
         }
 
         // Advance board position to check next square
@@ -50,6 +58,9 @@ static Move candidateToMove(const MoveCandidate& cand, const LetterBoard& board)
         c += dc;
         i++;
     }
+
+    // C. Null Terminate the SBO string
+    m.word[writeIdx] = '\0';
 
     return m;
 }
