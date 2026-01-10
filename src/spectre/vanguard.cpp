@@ -47,6 +47,29 @@ void simApplyMove(LetterBoard& board, const MoveCandidate& move, int* rackCounts
     }
 }
 
+/*
+bool leavesTWSOpen(const MoveCandidate& move, const LetterBoard& board) {
+    int r = move.row; int c = move.col;
+    int dr = move.isHorizontal ? 0 : 1;
+    int dc = move.isHorizontal ? 1 : 0;
+
+    for (int i=0; move.word[i] != '\0'; i++) {
+        int nr[] = {r+1, r-1, r, r};
+        int nc[] = {c, c, c+1, c-1};
+        for(int k=0; k<4; k++) {
+            int checkR = nr[k]; int checkC = nc[k];
+            if (checkR >= 0 && checkR < 15 && checkC >= 0 && checkC < 15) {
+                // Check for TWS (0,0), (0,7)...
+                bool isTWS = ((checkR==0 || checkR==7 || checkR==14) && (checkC==0 || checkC==7 || checkC==14) && !(checkR==7 && checkC==7));
+                if (isTWS && board[checkR][checkC] == ' ') return true;
+            }
+        }
+        r += dr; c += dc;
+    }
+    return false;
+}
+*/
+
 // Convert histogram back to TileRack
 TileRack countsToRack(const int* counts) {
     TileRack rack;
