@@ -5,7 +5,6 @@
 #include "board.h"
 #include "tiles.h"
 #include "rack.h"
-#include "../player_controller.h"
 #include "../fast_constraints.h" // Include this!
 #include "types.h"
 
