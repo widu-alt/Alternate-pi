@@ -2,6 +2,11 @@ cmake_minimum_required(VERSION 4.0)
 project(scrabblePi)
 
 set(CMAKE_CXX_STANDARD 20)
+if(MSVC)
+    add_compile_options(/arch:AVX2)
+else()
+    add_compile_options(-O3 -march=native)
+endif()
 
 add_executable(scrabblePi src/engine/board.cpp
         include/engine/board.h

@@ -143,17 +143,17 @@ Move AIPlayer::getMove(const GameState& state,
             // A. Base Logic Score
             int boardScore = Mechanics::calculateTrueScore(cand, state.board, bonusBoard);
 
-            // B. Fast Leave Score (No string construction)
+            // B. Fast Leave Score (Direct Array Access)
             float leavePenalty = 0.0f;
             for(int i=0; i<26; i++) {
                 if (remainingRack[i] > 0) {
-                    leavePenalty += (Heuristics::getLeaveValue((char)('A'+i)) * remainingRack[i]);
+                    // OPTIMIZATION: Direct Access
+                    leavePenalty += (Heuristics::LEAVE_VALUES[i] * remainingRack[i]);
                 }
             }
 
             cand.score = boardScore + (int)leavePenalty;
 
-            // C. Track Best
             if (cand.score > bestMove.score) {
                 bestMove = cand;
             }
