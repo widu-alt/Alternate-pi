@@ -30,7 +30,6 @@ add_executable(scrabblePi src/engine/board.cpp
         src/engine/dictionary.cpp
         include/heuristics.h
         include/fast_constraints.h
-        src/fast_constraints.cpp
         include/ai_player.h
         src/ai_player.cpp
         include/modes/PvE/pve.h

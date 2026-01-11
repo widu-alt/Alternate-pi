@@ -105,38 +105,32 @@ private:
     // Entry point for a specific row
     template <typename Consumer>
     static bool genMovesGADDAG(int row, const LetterBoard &board, int *rackCounts,
-                              const RowConstraint &constraints, bool isHorizontal,
-                              Dictionary& dict, Consumer& consumer) {
+                          const RowConstraint &constraints, bool isHorizontal,
+                          Dictionary& dict, Consumer& consumer) {
 
-        // Calculate what is already on the board in this row
+        // 1. READ ANCHORS DIRECTLY (Zero Setup)
+        uint16_t anchorMask = constraints.anchorMask;
+
+        // 2. Fast Pruning Setup
+        // Optimization: Manually unroll or rely on constraints, but for now scan is fast enough.
         uint32_t boardRowMask = 0;
         for(int c = 0; c < 15; c++) {
             if(board[row][c] != ' ') boardRowMask |= (1 << (board[row][c] - 'A'));
         }
 
-        // Initial Pruning Mask: Rack + Board + Separator
         uint32_t myRackMask = getRackMask(rackCounts);
         uint32_t pruningMask = myRackMask | boardRowMask | (1 << SEPERATOR);
+        char wordBuf[20];
 
-        char wordBuf[20]; // Recursive word buffer
-
-        // Iterate over potential Anchors
-        for (int c = 0; c < 15; c++) {
-            if (board[row][c] != ' ') continue; // Anchors must be empty
-
-            // Definition of an Anchor: Adjacent to existing tile or specific constraints
-            bool isAnchor = false;
-            if (c > 0 && board[row][c-1] != ' ') isAnchor = true;
-            else if (c < 14 && board[row][c+1] != ' ') isAnchor = true;
-            else if (constraints.masks[c] != MASK_ANY) isAnchor = true;
-            else if (row == 7 && c == 7) isAnchor = true; // Start square
-
-            if (!isAnchor) continue;
+        // 3. TZCNT Loop
+        while (anchorMask) {
+            int c = std::countr_zero(anchorMask);
 
             wordBuf[0] = '\0';
-            // Start GADDAG traversal (Going Left)
             if (!goLeft(row, c, dict.rootIndex, constraints, myRackMask, pruningMask,
                 rackCounts, wordBuf, 0, board, isHorizontal, c, dict, consumer)) return false;
+
+            anchorMask &= ~(1 << c);
         }
         return true;
     }

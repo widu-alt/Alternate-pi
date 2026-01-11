@@ -20,8 +20,6 @@ using namespace spectre;
 using namespace std;
 using namespace std::chrono;
 
-const int SEPERATOR = 26;
-
 // --- CONSTRUCTOR & IDENTITY ---
 AIPlayer::AIPlayer(AIStyle style) : style(style) {}
 
