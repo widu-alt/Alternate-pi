@@ -140,8 +140,13 @@ Move AIPlayer::getMove(const GameState& state,
 
         // 2. Define Zero-Alloc Consumer
         auto consumer = [&](MoveCandidate& cand, int* remainingRack) -> bool {
-            // A. Base Logic Score
-            int boardScore = Mechanics::calculateTrueScore(cand, state.board, bonusBoard);
+
+            // OPTIMIZATION: Use Templated Scorer
+            int boardScore = 0;
+            if (cand.isHorizontal)
+                boardScore = Mechanics::calculateTrueScoreFast<true>(cand, state.board, bonusBoard);
+            else
+                boardScore = Mechanics::calculateTrueScoreFast<false>(cand, state.board, bonusBoard);
 
             // B. Fast Leave Score (Direct Array Access)
             float leavePenalty = 0.0f;

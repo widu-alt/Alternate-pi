@@ -102,7 +102,11 @@ TileRack countsToRack(const int* counts) {
 
     // 2. STATIC SCORING
     for (auto& cand : candidates) {
-        cand.score = Mechanics::calculateTrueScore(cand, board, bonusBoard);
+        int logicScore = 0;
+        if (cand.isHorizontal)
+            logicScore = Mechanics::calculateTrueScoreFast<true>(cand, board, bonusBoard);
+        else
+            logicScore = Mechanics::calculateTrueScoreFast<false>(cand, board, bonusBoard);
     }
 
     sort(candidates.begin(), candidates.end(), [](const MoveCandidate& a, const MoveCandidate& b) {

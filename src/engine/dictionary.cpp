@@ -24,40 +24,30 @@ struct TempNode {
 
 vector<TempNode> tempNodes;
 
-Dictionary::Dictionary() {
-    // Creating the root node immediately so that the graph is never empty
-    rootIndex = 0;
-    //nodes.emplace_back(); // create root
-}
-
-// Helper to get array index
-int getIndex(char c) {
+// Internal Helper for building
+int getIndexBuild(char c) {
     if (c >= 'A' && c <= 'Z') return c - 'A';
     if (c >= 'a' && c <= 'z') return c - 'a';
-    if (c == '^') return SEPERATOR; // '^' represent the seperator internally.
+    if (c == '^') return SEPERATOR;
     return -1;
 }
 
 bool Dictionary::loadFromFile(const string &filename) {
-    // 1. Try Binary Cache First
+    // 1. Try Binary Cache
     string binaryName = "gaddag.bin";
-    if (loadBinary(binaryName)) return true;
+    if (loadBinary(binaryName)) {
+        prepareOptimizedPointers(); // LOCK POINTERS
+        return true;
+    }
 
     // 2. Find Text File
-    vector<string> searchPaths = {"",
-                                  "data/",
-                                  "../data/",
-                                  "../../data/",
-                                  "../../../data/" };
+    vector<string> searchPaths = {"", "data/", "../data/", "../../data/", "../../../data/"};
     ifstream in;
     string foundPath;
 
     for (const auto& prefix : searchPaths) {
         in.open(prefix + filename);
-        if (in.is_open()) {
-            foundPath = prefix + filename;
-            break;
-        }
+        if (in.is_open()) { foundPath = prefix + filename; break; }
         in.clear();
     }
 
@@ -68,7 +58,7 @@ bool Dictionary::loadFromFile(const string &filename) {
 
     cout << "[Dict] Loading raw text from: " << foundPath << endl;
 
-    // 3. Parse & Build
+    // 3. Parse
     vector<string> wordList;
     string word;
     while (in >> word) {
@@ -78,7 +68,9 @@ bool Dictionary::loadFromFile(const string &filename) {
     }
 
     buildFromWordList(wordList);
-    saveBinary(binaryName); // Create cache for next time
+    saveBinary(binaryName);
+
+    prepareOptimizedPointers(); // LOCK POINTERS
     return true;
 }
 
@@ -99,7 +91,7 @@ void Dictionary::insertGADDAG(const string &word) {
 
         int currNode = 0; //temproot
         for (char c : path) {
-            int idx = getIndex(c);
+            int idx = getIndexBuild(c);
             if (idx == -1) continue;
 
             if (tempNodes[currNode].children[idx] == -1) {
@@ -218,29 +210,6 @@ bool Dictionary::loadBinary(const string &filename) {
          << (poolCount*4)/(1024*1024) << " MB edges." << endl;
     return in.good();
 }
-
-bool Dictionary::isValidWord(const string &word) const {
-    if (word.empty()) return false;
-    int curr = rootIndex;
-
-    // First letter
-    int idx0 = getIndex(word[0]);
-    curr = getChild(curr, idx0);
-    if (curr == -1) return false;
-
-    // Separator
-    curr = getChild(curr, SEPERATOR);
-    if (curr == -1) return false;
-
-    for (int i = 1; i < word.length(); i++) {
-        curr = getChild(curr, getIndex(word[i]));
-        if (curr == -1) return false;
-    }
-
-    return nodes[curr].isEndOfWord;
-}
-
-
 
 
 
